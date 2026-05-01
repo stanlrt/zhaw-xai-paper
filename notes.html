@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Presenter Notes</title>
+    <link rel="stylesheet" href="/src/notes/notes.css" />
+  </head>
+  <body>
+    <header>
+      <div id="status">Waiting for presenter…</div>
+      <div id="meta">
+        <span id="counter">— / —</span>
+        <span id="timer">00:00</span>
+      </div>
+    </header>
+    <main>
+      <section id="current">
+        <div class="label">Current</div>
+        <h1 id="current-id">—</h1>
+        <div id="current-notes" class="notes"></div>
+      </section>
+      <section id="next">
+        <div class="label">Next</div>
+        <h2 id="next-id">—</h2>
+        <div id="next-notes" class="notes muted"></div>
+      </section>
+    </main>
+    <footer>
+      <kbd>←</kbd>/<kbd>→</kbd> nav · <kbd>R</kbd> reset timer · open editor in another window
+    </footer>
+    <script type="module" src="/src/notes/notes-app.ts"></script>
+  </body>
+</html>
