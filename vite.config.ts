@@ -138,135 +138,92 @@ function suppressMetaReload(): Plugin {
   };
 }
 
-function presentBuildPlugin(): Plugin {
-  // Static build: ship a standalone presenter (no editor UI) at index.html
-  // plus the existing notes.html. The presenter mounts the Stage canvas
-  // fullscreen and binds keyboard nav. presenter-bridge wires the
-  // BroadcastChannel to notes.html.
+function editorHtmlBuildPlugin(): Plugin {
+  // Motion Canvas vite-plugin emits the editor HTML only in dev. For static
+  // builds (e.g. GitHub Pages) we generate index.html ourselves from the
+  // @motion-canvas/ui editor.html template and ship style.css as an asset.
   let isBuild = false;
-  const presentEntryName = 'present-entry';
-  const presentEntryId = 'virtual:mc-present-entry';
-  const resolvedPresentEntryId = '\0' + presentEntryId;
+  const projectEntryName = 'project';
+  const editorEntryName = 'editor-entry';
+  const editorEntryId = 'virtual:mc-editor-entry';
+  const resolvedEditorEntryId = '\0' + editorEntryId;
   const projectFile = resolve(__dirname, 'src/project.ts');
-  const notesHtmlPath = resolve(__dirname, 'notes.html');
+  // Plugins loaded at runtime by editorBootstrap via `/@id/<spec>` dynamic
+  // imports — Vite dev URLs that 404 in production. We bundle each as an
+  // additional Rollup input and remap via importmap in the generated HTML.
+  const runtimePlugins = ['@motion-canvas/2d/editor'];
   return {
-    name: 'mc-present-build',
+    name: 'mc-editor-html-build',
     apply: 'build',
     configResolved(c) {
       isBuild = c.command === 'build';
     },
     config() {
-      return {
-        build: {
-          rollupOptions: {
-            input: {
-              [presentEntryName]: presentEntryId,
-              notes: notesHtmlPath,
-            },
-          },
-        },
+      const input: Record<string, string> = {
+        [editorEntryName]: editorEntryId,
       };
+      for (const spec of runtimePlugins) {
+        input[spec.replace(/[@/]/g, '_').replace(/^_+/, '')] =
+          require.resolve(spec);
+      }
+      return {build: {rollupOptions: {input}}};
     },
     resolveId(id) {
-      if (id === presentEntryId) return resolvedPresentEntryId;
+      if (id === editorEntryId) return resolvedEditorEntryId;
     },
     load(id) {
-      if (id !== resolvedPresentEntryId) return;
-      const projectImport = projectFile.replace(/\\/g, '/') + '?project';
-      const bridgeImport = resolve(__dirname, 'src/lib/presenter-bridge.ts').replace(/\\/g, '/');
-      return `\
-import {Presenter} from '@motion-canvas/core';
-import ${JSON.stringify(bridgeImport)};
-import project from ${JSON.stringify(projectImport)};
-
-const presenter = new Presenter(project);
-const canvas = presenter.stage.finalBuffer;
-
-document.documentElement.style.height = '100%';
-document.body.style.margin = '0';
-document.body.style.height = '100vh';
-document.body.style.background = '#000';
-document.body.style.overflow = 'hidden';
-document.body.style.display = 'flex';
-document.body.style.alignItems = 'center';
-document.body.style.justifyContent = 'center';
-canvas.style.maxWidth = '100vw';
-canvas.style.maxHeight = '100vh';
-canvas.style.width = 'auto';
-canvas.style.height = 'auto';
-canvas.style.display = 'block';
-document.body.appendChild(canvas);
-
-const settings = {
-  ...project.meta.getFullRenderingSettings(),
-  name: project.name,
-  slide: null,
-};
-presenter.present(settings);
-
-window.addEventListener('keydown', (e) => {
-  const tag = (e.target && e.target.tagName) || '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  switch (e.key) {
-    case ' ':
-    case 'ArrowRight':
-    case 'PageDown':
-      presenter.requestNextSlide();
-      e.preventDefault();
-      break;
-    case 'ArrowLeft':
-    case 'PageUp':
-      presenter.requestPreviousSlide();
-      e.preventDefault();
-      break;
-    case 'Home':
-      presenter.requestFirstSlide();
-      break;
-    case 'End':
-      presenter.requestLastSlide();
-      break;
-    case 'f':
-    case 'F':
-      if (document.fullscreenElement) document.exitFullscreen();
-      else document.documentElement.requestFullscreen();
-      break;
-    case 'n':
-    case 'N':
-      window.open('./notes.html', 'mc-notes', 'noopener');
-      break;
-  }
-});
-`;
+      if (id === resolvedEditorEntryId) {
+        const projectImport = projectFile.replace(/\\/g, '/') + '?project';
+        return `import {editor} from '@motion-canvas/ui';\nimport project from ${JSON.stringify(projectImport)};\neditor(project);\n`;
+      }
     },
     generateBundle(_opts, bundle) {
       if (!isBuild) return;
+      const uiDir = dirname(require.resolve('@motion-canvas/ui/package.json'));
+      const editorHtml = readFileSync(
+        resolve(uiDir, 'dist/editor.html'),
+        'utf8',
+      );
+      const styleSrc = readFileSync(resolve(uiDir, 'dist/style.css'));
+
+      const styleRef = this.emitFile({
+        type: 'asset',
+        name: 'style.css',
+        source: styleSrc,
+      });
+      const styleFile = this.getFileName(styleRef);
 
       let entryFile: string | undefined;
-      let notesHtmlFile: string | undefined;
-      for (const [file, chunk] of Object.entries(bundle)) {
-        if (chunk.type === 'chunk' && chunk.isEntry && chunk.name === presentEntryName) {
-          entryFile = file;
-        }
-        if (chunk.type === 'asset' && (chunk.fileName === 'notes.html' || chunk.name === 'notes.html')) {
-          notesHtmlFile = chunk.fileName;
-        }
+      const pluginEntries: Record<string, string> = {};
+      const pluginNameToSpec = new Map<string, string>();
+      for (const spec of runtimePlugins) {
+        pluginNameToSpec.set(
+          spec.replace(/[@/]/g, '_').replace(/^_+/, ''),
+          spec,
+        );
       }
+      let projectChunkFile: string | undefined;
+      for (const [file, chunk] of Object.entries(bundle)) {
+        if (chunk.type !== 'chunk' || !chunk.isEntry) continue;
+        if (chunk.name === editorEntryName) entryFile = file;
+        if (chunk.name === projectEntryName) projectChunkFile = file;
+        const spec = pluginNameToSpec.get(chunk.name);
+        if (spec) pluginEntries[spec] = file;
+      }
+      if (!entryFile) entryFile = projectChunkFile;
       if (!entryFile) return;
 
-      const html = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sparse Feature Circuits — Presentation</title>
-    <style>html,body{margin:0;height:100%;background:#000;color:#eee;font-family:system-ui,sans-serif}#hint{position:fixed;left:12px;bottom:8px;font-size:12px;opacity:.5;pointer-events:none}</style>
-  </head>
-  <body>
-    <div id="hint">→ next · ← prev · F fullscreen · N open notes${notesHtmlFile ? ` (<a style="color:#9cf" href="./${notesHtmlFile}" target="_blank" rel="noopener">notes</a>)` : ''}</div>
-    <script type="module" src="./${entryFile}"></script>
-  </body>
-</html>
-`;
+      const importMap: Record<string, string> = {};
+      for (const [spec, file] of Object.entries(pluginEntries)) {
+        importMap[`/@id/${spec}`] = `./${file}`;
+      }
+      const importMapTag = `    <script type="importmap">${JSON.stringify({imports: importMap})}</script>\n  `;
+
+      let html = editorHtml
+        .replace('{{style}}', `./${styleFile}`)
+        .replace('{{source}}', `./${entryFile}`);
+      html = html.replace('</head>', importMapTag + '</head>');
+
       this.emitFile({type: 'asset', fileName: 'index.html', source: html});
     },
   };
@@ -302,10 +259,10 @@ export default defineConfig({
   server: {open: false},
   plugins: [
     presenterBridgePlugin(),
-    motionCanvas(),
+    motionCanvas({buildForEditor: true}),
     slideNotesPlugin(),
     suppressMetaReload(),
-    presentBuildPlugin(),
+    editorHtmlBuildPlugin(),
     openTabsPlugin(),
   ],
 });
