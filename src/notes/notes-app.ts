@@ -13,6 +13,8 @@ const $nextNotes = document.getElementById('next-notes')!;
 const $nextOwner = document.getElementById('next-owner')!;
 
 let startTime: number | null = null;
+let lastNotes = '';
+let lastOwner = '';
 
 function fmt(ms: number) {
   const s = Math.floor(ms / 1000);
@@ -46,8 +48,13 @@ function render(info: {
   const nxtMeta = nxt ? notes[nxt] : undefined;
 
   $curId.textContent = cur ?? '—';
-  $curNotes.textContent = curMeta?.notes ?? '(no notes)';
-  $curOwner.textContent = curMeta?.owner ?? '';
+  const curText = curMeta?.notes?.trim();
+  if (curText) {
+    lastNotes = curText;
+    lastOwner = curMeta?.owner ?? '';
+  }
+  $curNotes.textContent = lastNotes || '(no notes)';
+  $curOwner.textContent = lastOwner;
   $nextId.textContent = nxt ?? '—';
   $nextNotes.textContent = nxtMeta?.notes ?? '';
   $nextOwner.textContent = nxtMeta?.owner ?? '';
