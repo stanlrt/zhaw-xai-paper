@@ -143,12 +143,24 @@ function editorHtmlBuildPlugin(): Plugin {
   // builds (e.g. GitHub Pages) we generate index.html ourselves from the
   // @motion-canvas/ui editor.html template and ship style.css as an asset.
   let isBuild = false;
-  let projectEntryName = 'project';
+  const projectEntryName = 'project';
+  // Plugins loaded at runtime by editorBootstrap via `/@id/<spec>` dynamic
+  // imports — Vite dev URLs that 404 in production. We bundle each as an
+  // additional Rollup input and remap via importmap in the generated HTML.
+  const runtimePlugins = ['@motion-canvas/2d/editor'];
   return {
     name: 'mc-editor-html-build',
     apply: 'build',
     configResolved(c) {
       isBuild = c.command === 'build';
+    },
+    config() {
+      const input: Record<string, string> = {};
+      for (const spec of runtimePlugins) {
+        input[spec.replace(/[@/]/g, '_').replace(/^_+/, '')] =
+          require.resolve(spec);
+      }
+      return {build: {rollupOptions: {input}}};
     },
     generateBundle(_opts, bundle) {
       if (!isBuild) return;
@@ -167,15 +179,19 @@ function editorHtmlBuildPlugin(): Plugin {
       const styleFile = this.getFileName(styleRef);
 
       let entryFile: string | undefined;
+      const pluginEntries: Record<string, string> = {};
+      const pluginNameToSpec = new Map<string, string>();
+      for (const spec of runtimePlugins) {
+        pluginNameToSpec.set(
+          spec.replace(/[@/]/g, '_').replace(/^_+/, ''),
+          spec,
+        );
+      }
       for (const [file, chunk] of Object.entries(bundle)) {
-        if (
-          chunk.type === 'chunk' &&
-          chunk.isEntry &&
-          chunk.name === projectEntryName
-        ) {
-          entryFile = file;
-          break;
-        }
+        if (chunk.type !== 'chunk' || !chunk.isEntry) continue;
+        if (chunk.name === projectEntryName) entryFile = file;
+        const spec = pluginNameToSpec.get(chunk.name);
+        if (spec) pluginEntries[spec] = file;
       }
       if (!entryFile) {
         for (const [file, chunk] of Object.entries(bundle)) {
@@ -187,9 +203,16 @@ function editorHtmlBuildPlugin(): Plugin {
       }
       if (!entryFile) return;
 
-      const html = editorHtml
+      const importMap: Record<string, string> = {};
+      for (const [spec, file] of Object.entries(pluginEntries)) {
+        importMap[`/@id/${spec}`] = `./${file}`;
+      }
+      const importMapTag = `    <script type="importmap">${JSON.stringify({imports: importMap})}</script>\n  `;
+
+      let html = editorHtml
         .replace('{{style}}', `./${styleFile}`)
         .replace('{{source}}', `./${entryFile}`);
+      html = html.replace('</head>', importMapTag + '</head>');
 
       this.emitFile({type: 'asset', fileName: 'index.html', source: html});
     },
