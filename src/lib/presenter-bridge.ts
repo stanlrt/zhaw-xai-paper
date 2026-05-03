@@ -1,6 +1,7 @@
 import {Presenter} from '@motion-canvas/core';
 
 const channel = new BroadcastChannel('mc-slides');
+const STORAGE_KEY = 'mc-presenter-slide';
 let lastInfo: any = null;
 
 function attach(instance: any) {
@@ -8,8 +9,36 @@ function attach(instance: any) {
   instance.__mcBridged = true;
   (window as any).__mcPresenter = instance;
 
+  let restoredOnce = false;
+
+  instance.onSlidesChanged.subscribe((slides: any[]) => {
+    const ids = slides.map(s => s.id ?? s.name ?? String(s));
+    channel.postMessage({type: 'slides', ids});
+
+    // After first slides-changed, try to restore last position from localStorage
+    if (!restoredOnce) {
+      restoredOnce = true;
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved && ids.includes(saved)) {
+          // Tiny delay so presenter has finished its boot sequence
+          setTimeout(() => {
+            try {
+              instance.requestSlide(saved);
+            } catch {}
+          }, 60);
+        }
+      } catch {}
+    }
+  }, true);
+
   instance.onInfoChanged.subscribe((info: any) => {
     lastInfo = info;
+    if (info.currentSlideId) {
+      try {
+        localStorage.setItem(STORAGE_KEY, info.currentSlideId);
+      } catch {}
+    }
     channel.postMessage({
       type: 'info',
       currentSlideId: info.currentSlideId,
@@ -17,13 +46,6 @@ function attach(instance: any) {
       isWaiting: info.isWaiting,
       index: info.index,
       count: info.count,
-    });
-  }, true);
-
-  instance.onSlidesChanged.subscribe((slides: any[]) => {
-    channel.postMessage({
-      type: 'slides',
-      ids: slides.map(s => s.id ?? s.name ?? String(s)),
     });
   }, true);
 }
@@ -46,6 +68,12 @@ channel.addEventListener('message', e => {
         count: lastInfo.count,
       });
     }
+    return;
+  }
+  if (e.data?.type === 'reset-slide') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
     return;
   }
   const p: any = (window as any).__mcPresenter;
