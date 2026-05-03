@@ -13,8 +13,7 @@ const $nextNotes = document.getElementById('next-notes')!;
 const $nextOwner = document.getElementById('next-owner')!;
 
 let startTime: number | null = null;
-let lastNotes = '';
-let lastOwner = '';
+let slideIds: string[] = [];
 
 function fmt(ms: number) {
   const s = Math.floor(ms / 1000);
@@ -48,19 +47,29 @@ function render(info: {
   const nxtMeta = nxt ? notes[nxt] : undefined;
 
   $curId.textContent = cur ?? '—';
-  const curText = curMeta?.notes?.trim();
-  if (curText) {
-    lastNotes = curText;
-    lastOwner = curMeta?.owner ?? '';
+  let displayMeta = curMeta;
+  if (!displayMeta?.notes?.trim() && cur) {
+    const idx = slideIds.indexOf(cur);
+    for (let i = idx - 1; i >= 0; i--) {
+      const m = notes[slideIds[i]];
+      if (m?.notes?.trim()) {
+        displayMeta = m;
+        break;
+      }
+    }
   }
-  $curNotes.textContent = lastNotes || '(no notes)';
-  $curOwner.textContent = lastOwner;
+  $curNotes.textContent = displayMeta?.notes?.trim() || '(no notes)';
+  $curOwner.textContent = displayMeta?.owner ?? '';
   $nextId.textContent = nxt ?? '—';
   $nextNotes.textContent = nxtMeta?.notes ?? '';
   $nextOwner.textContent = nxtMeta?.owner ?? '';
 }
 
 channel.addEventListener('message', e => {
+  if (e.data?.type === 'slides') {
+    slideIds = e.data.ids ?? [];
+    return;
+  }
   if (e.data?.type === 'info') {
     if (startTime === null && e.data.currentSlideId) startTime = Date.now();
     render(e.data);
