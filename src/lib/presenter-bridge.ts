@@ -1,11 +1,15 @@
 import {Presenter} from '@motion-canvas/core';
 
-const CHANNEL = 'mc-slides';
-const channel = new BroadcastChannel(CHANNEL);
+const channel = new BroadcastChannel('mc-slides');
+let lastInfo: any = null;
 
-const origPresent = Presenter.prototype.present;
-Presenter.prototype.present = function (settings: any) {
-  this.onInfoChanged.subscribe(info => {
+function attach(instance: any) {
+  if (instance.__mcBridged) return;
+  instance.__mcBridged = true;
+  (window as any).__mcPresenter = instance;
+
+  instance.onInfoChanged.subscribe((info: any) => {
+    lastInfo = info;
     channel.postMessage({
       type: 'info',
       currentSlideId: info.currentSlideId,
@@ -14,18 +18,36 @@ Presenter.prototype.present = function (settings: any) {
       index: info.index,
       count: info.count,
     });
-  });
-  this.onSlidesChanged.subscribe(slides => {
+  }, true);
+
+  instance.onSlidesChanged.subscribe((slides: any[]) => {
     channel.postMessage({
       type: 'slides',
-      ids: slides.map((s: any) => s.id ?? s.name ?? String(s)),
+      ids: slides.map(s => s.id ?? s.name ?? String(s)),
     });
-  });
-  (window as any).__mcPresenter = this;
+  }, true);
+}
+
+const origPresent = Presenter.prototype.present;
+Presenter.prototype.present = function (settings: any) {
+  attach(this);
   return origPresent.call(this, settings);
 };
 
 channel.addEventListener('message', e => {
+  if (e.data?.type === 'sync') {
+    if (lastInfo) {
+      channel.postMessage({
+        type: 'info',
+        currentSlideId: lastInfo.currentSlideId,
+        nextSlideId: lastInfo.nextSlideId,
+        isWaiting: lastInfo.isWaiting,
+        index: lastInfo.index,
+        count: lastInfo.count,
+      });
+    }
+    return;
+  }
   const p: any = (window as any).__mcPresenter;
   if (!p) return;
   switch (e.data?.type) {
@@ -40,5 +62,3 @@ channel.addEventListener('message', e => {
       break;
   }
 });
-
-console.log('[mc-bridge] presenter bridge installed');

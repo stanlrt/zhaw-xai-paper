@@ -1,5 +1,5 @@
 import {Circle, Line, View2D} from '@motion-canvas/2d';
-import {createRef, all, chain, ThreadGenerator} from '@motion-canvas/core';
+import {createRef, all, ThreadGenerator} from '@motion-canvas/core';
 import {Neuron} from './neuron';
 import {colors, sizes} from './theme';
 
@@ -11,14 +11,65 @@ export interface NetworkOptions {
 }
 
 export interface Network {
+  view: View2D;
   neurons: Circle[][];
   linesPerLayer: Line[][];
-  /** Reveal neurons (scale 0 → 1) then connections (end 0 → 1). */
   intro: () => ThreadGenerator;
-  /** Pulse forward propagation through every layer. */
-  propagate: (opts?: {pulseDuration?: number; fadeDuration?: number}) => ThreadGenerator;
-  /** Highlight a specific neuron transiently. */
+  propagate: (opts?: {dur?: number}) => ThreadGenerator;
   pulseNeuron: (layer: number, index: number, duration?: number) => ThreadGenerator;
+  pulseNeuronSubset: (layer: number, indices: number[], dur?: number) => ThreadGenerator;
+  slideEdges: (
+    layerIdx: number,
+    fromIdx: number[],
+    toIdx: number[],
+    dur?: number,
+  ) => ThreadGenerator;
+  fireTransition: (
+    layerIdx: number,
+    fromIdx: number[],
+    toIdx: number[],
+    dur?: number,
+  ) => ThreadGenerator;
+}
+
+/** Animate a single edge: cyan overlay wipes in from left, then erases from left. */
+export function* slideEdgeHighlight(
+  view: View2D,
+  baseLine: Line,
+  color: string = colors.active,
+  dur = 0.55,
+): ThreadGenerator {
+  const overlay = createRef<Line>();
+  view.add(
+    <Line
+      ref={overlay}
+      points={baseLine.points() ?? []}
+      stroke={color}
+      lineWidth={(baseLine.lineWidth() as number) + 2}
+      start={0}
+      end={0}
+      lineCap={'round'}
+    />,
+  );
+  yield* overlay().end(1, dur * 0.55);
+  yield* overlay().start(1, dur * 0.45);
+  overlay().remove();
+}
+
+/** Pulse a subset of neurons in a layer (cyan flash, fade back). */
+export function* pulseNeuronSubsetGen(
+  neurons: Circle[],
+  indices: number[],
+  color: string = colors.active,
+  dur = 0.45,
+): ThreadGenerator {
+  yield* all(
+    ...indices.map(i =>
+      neurons[i]
+        .fill(color, dur / 2)
+        .to(colors.neuronFill, dur),
+    ),
+  );
 }
 
 export function buildNetwork(view: View2D, opts: NetworkOptions): Network {
@@ -70,36 +121,66 @@ export function buildNetwork(view: View2D, opts: NetworkOptions): Network {
     yield* all(...linesPerLayer.flat().map(l => l.end(1, 0.6)));
   }
 
-  function* propagate({pulseDuration = 0.25, fadeDuration = 0.4} = {}) {
+  function* pulseNeuron(layer: number, index: number, duration = 0.4) {
+    const n = neurons[layer][index];
+    yield* n.fill(colors.active, duration / 2).to(colors.neuronFill, duration / 2);
+  }
+
+  function* pulseNeuronSubset(layer: number, indices: number[], dur = 0.45) {
+    yield* pulseNeuronSubsetGen(neurons[layer], indices, colors.active, dur);
+  }
+
+  function* slideEdges(
+    layerIdx: number,
+    fromIdx: number[],
+    toIdx: number[],
+    dur = 0.55,
+  ) {
+    const lines = linesPerLayer[layerIdx];
+    const toCount = neurons[layerIdx + 1].length;
+    const targets: Line[] = [];
+    for (const a of fromIdx) for (const b of toIdx) targets.push(lines[a * toCount + b]);
+    yield* all(...targets.map(ln => slideEdgeHighlight(view, ln, colors.active, dur)));
+  }
+
+  function* fireTransition(
+    layerIdx: number,
+    fromIdx: number[],
+    toIdx: number[],
+    dur = 0.55,
+  ) {
+    yield* all(
+      pulseNeuronSubsetGen(neurons[layerIdx], fromIdx, colors.active, dur),
+      slideEdges(layerIdx, fromIdx, toIdx, dur),
+      pulseNeuronSubsetGen(neurons[layerIdx + 1], toIdx, colors.active, dur),
+    );
+  }
+
+  function* propagate({dur = 0.55} = {}) {
+    // Fire all neurons in layer, then slide all lines, then next layer's neurons.
     for (let l = 0; l < neurons.length; l++) {
-      yield* all(
-        ...neurons[l].map(n =>
-          chain(
-            n.fill(colors.active, pulseDuration),
-            n.fill(colors.neuronFill, fadeDuration),
-          ),
-        ),
-      );
+      const fromAll = neurons[l].map((_, i) => i);
       if (l < linesPerLayer.length) {
+        const toAll = neurons[l + 1].map((_, i) => i);
         yield* all(
-          ...linesPerLayer[l].map(ln =>
-            chain(
-              ln.stroke(colors.active, pulseDuration),
-              ln.stroke(colors.edge, fadeDuration),
-            ),
-          ),
+          pulseNeuronSubsetGen(neurons[l], fromAll, colors.active, dur),
+          slideEdges(l, fromAll, toAll, dur),
         );
+      } else {
+        yield* pulseNeuronSubsetGen(neurons[l], fromAll, colors.active, dur);
       }
     }
   }
 
-  function* pulseNeuron(layer: number, index: number, duration = 0.4) {
-    const n = neurons[layer][index];
-    yield* chain(
-      n.fill(colors.active, duration / 2),
-      n.fill(colors.neuronFill, duration / 2),
-    );
-  }
-
-  return {neurons, linesPerLayer, intro, propagate, pulseNeuron};
+  return {
+    view,
+    neurons,
+    linesPerLayer,
+    intro,
+    propagate,
+    pulseNeuron,
+    pulseNeuronSubset,
+    slideEdges,
+    fireTransition,
+  };
 }

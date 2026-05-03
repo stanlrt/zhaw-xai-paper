@@ -7,8 +7,10 @@ const $counter = document.getElementById('counter')!;
 const $timer = document.getElementById('timer')!;
 const $curId = document.getElementById('current-id')!;
 const $curNotes = document.getElementById('current-notes')!;
+const $curOwner = document.getElementById('current-owner')!;
 const $nextId = document.getElementById('next-id')!;
 const $nextNotes = document.getElementById('next-notes')!;
+const $nextOwner = document.getElementById('next-owner')!;
 
 let startTime: number | null = null;
 
@@ -20,11 +22,7 @@ function fmt(ms: number) {
 }
 
 function tick() {
-  if (startTime === null) {
-    $timer.textContent = '00:00';
-  } else {
-    $timer.textContent = fmt(Date.now() - startTime);
-  }
+  $timer.textContent = startTime === null ? '00:00' : fmt(Date.now() - startTime);
 }
 setInterval(tick, 500);
 
@@ -44,10 +42,15 @@ function render(info: {
 
   const cur = info.currentSlideId;
   const nxt = info.nextSlideId;
+  const curMeta = cur ? notes[cur] : undefined;
+  const nxtMeta = nxt ? notes[nxt] : undefined;
+
   $curId.textContent = cur ?? '—';
-  $curNotes.textContent = cur && notes[cur] ? notes[cur] : '(no notes)';
+  $curNotes.textContent = curMeta?.notes ?? '(no notes)';
+  $curOwner.textContent = curMeta?.owner ?? '';
   $nextId.textContent = nxt ?? '—';
-  $nextNotes.textContent = nxt && notes[nxt] ? notes[nxt] : '';
+  $nextNotes.textContent = nxtMeta?.notes ?? '';
+  $nextOwner.textContent = nxtMeta?.owner ?? '';
 }
 
 channel.addEventListener('message', e => {
@@ -70,3 +73,16 @@ document.addEventListener('keydown', e => {
 });
 
 render({currentSlideId: null, nextSlideId: null, index: null, count: 0});
+
+let synced = false;
+let attempts = 0;
+const syncTimer = setInterval(() => {
+  if (synced || attempts++ > 40) {
+    clearInterval(syncTimer);
+    return;
+  }
+  channel.postMessage({type: 'sync'});
+}, 250);
+channel.addEventListener('message', e => {
+  if (e.data?.type === 'info') synced = true;
+});

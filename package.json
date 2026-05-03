@@ -17,6 +17,7 @@
     "@motion-canvas/vite-plugin": "^3.17.2",
     "@types/node": "^25.6.0",
     "cross-env": "^10.1.0",
+    "open": "^11.0.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.8"
   },

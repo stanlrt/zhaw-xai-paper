@@ -1,7 +1,7 @@
 import {defineConfig, Plugin} from 'vite';
 import {createRequire} from 'module';
 import {readFileSync, readdirSync, statSync} from 'fs';
-import {resolve, dirname, join} from 'path';
+import {resolve, dirname, join, basename, extname} from 'path';
 import {fileURLToPath} from 'url';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const require = createRequire(import.meta.url);
@@ -9,7 +9,8 @@ const motionCanvas = require('@motion-canvas/vite-plugin').default;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const SLIDE_RE = /slide\(\s*['"]([^'"]+)['"]\s*,\s*`([\s\S]*?)`/g;
+const SLIDE_RE =
+  /slide\(\s*['"]([^'"]+)['"]\s*,\s*`([\s\S]*?)`(?:\s*,\s*['"]([^'"]+)['"])?/g;
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -28,15 +29,25 @@ function walk(dir: string): string[] {
   return out;
 }
 
-function extractNotes(): Record<string, string> {
+interface SlideMeta {
+  notes: string;
+  owner?: string;
+}
+
+function extractNotes(): Record<string, SlideMeta> {
   const dir = resolve(__dirname, 'src/scenes');
-  const notes: Record<string, string> = {};
+  const notes: Record<string, SlideMeta> = {};
   for (const file of walk(dir)) {
+    const sceneName = basename(file, extname(file));
     const src = readFileSync(file, 'utf8');
     let m: RegExpExecArray | null;
     SLIDE_RE.lastIndex = 0;
     while ((m = SLIDE_RE.exec(src))) {
-      notes[m[1]] = m[2].replace(/^[ \t]+/gm, '').trim();
+      const fullId = `${sceneName}:${m[1]}`;
+      notes[fullId] = {
+        notes: m[2].replace(/^[ \t]+/gm, '').trim(),
+        owner: m[3] || undefined,
+      };
     }
   }
   return notes;
@@ -56,11 +67,14 @@ function slideNotesPlugin(): Plugin {
       }
     },
     handleHotUpdate(ctx) {
-      if (ctx.file.includes('/src/scenes/') || ctx.file.includes('\\src\\scenes\\')) {
+      if (
+        ctx.file.includes('/src/scenes/') ||
+        ctx.file.includes('\\src\\scenes\\')
+      ) {
         const mod = ctx.server.moduleGraph.getModuleById(RESOLVED);
         if (mod) {
           ctx.server.moduleGraph.invalidateModule(mod);
-          ctx.server.ws.send({type: 'full-reload'});
+          return [...ctx.modules, mod];
         }
       }
     },
@@ -112,6 +126,110 @@ function presenterBridgePlugin(): Plugin {
   };
 }
 
+function suppressMetaReload(): Plugin {
+  return {
+    name: 'suppress-meta-reload',
+    enforce: 'post',
+    handleHotUpdate(ctx) {
+      if (ctx.file.endsWith('.meta')) {
+        return [];
+      }
+    },
+  };
+}
+
+function editorHtmlBuildPlugin(): Plugin {
+  // Motion Canvas vite-plugin emits the editor HTML only in dev. For static
+  // builds (e.g. GitHub Pages) we generate index.html ourselves from the
+  // @motion-canvas/ui editor.html template and ship style.css as an asset.
+  let isBuild = false;
+  let projectEntryName = 'project';
+  return {
+    name: 'mc-editor-html-build',
+    apply: 'build',
+    configResolved(c) {
+      isBuild = c.command === 'build';
+    },
+    generateBundle(_opts, bundle) {
+      if (!isBuild) return;
+      const uiDir = dirname(require.resolve('@motion-canvas/ui/package.json'));
+      const editorHtml = readFileSync(
+        resolve(uiDir, 'dist/editor.html'),
+        'utf8',
+      );
+      const styleSrc = readFileSync(resolve(uiDir, 'dist/style.css'));
+
+      const styleRef = this.emitFile({
+        type: 'asset',
+        name: 'style.css',
+        source: styleSrc,
+      });
+      const styleFile = this.getFileName(styleRef);
+
+      let entryFile: string | undefined;
+      for (const [file, chunk] of Object.entries(bundle)) {
+        if (
+          chunk.type === 'chunk' &&
+          chunk.isEntry &&
+          chunk.name === projectEntryName
+        ) {
+          entryFile = file;
+          break;
+        }
+      }
+      if (!entryFile) {
+        for (const [file, chunk] of Object.entries(bundle)) {
+          if (chunk.type === 'chunk' && chunk.isEntry) {
+            entryFile = file;
+            break;
+          }
+        }
+      }
+      if (!entryFile) return;
+
+      const html = editorHtml
+        .replace('{{style}}', `./${styleFile}`)
+        .replace('{{source}}', `./${entryFile}`);
+
+      this.emitFile({type: 'asset', fileName: 'index.html', source: html});
+    },
+  };
+}
+
+function openTabsPlugin(): Plugin {
+  let opened = false;
+  return {
+    name: 'open-tabs',
+    apply: 'serve',
+    configureServer(server) {
+      const fire = async () => {
+        if (opened) return;
+        opened = true;
+        try {
+          const a = server.httpServer?.address();
+          if (!a || typeof a === 'string') return;
+          const base = `http://localhost:${a.port}`;
+          const {default: open} = await import('open');
+          await open(`${base}/`);
+          await open(`${base}/notes.html`);
+        } catch (err) {
+          console.error('[open-tabs] failed', err);
+        }
+      };
+      server.httpServer?.once('listening', () => setTimeout(fire, 300));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [presenterBridgePlugin(), motionCanvas(), slideNotesPlugin()],
+  base: './',
+  server: {open: false},
+  plugins: [
+    presenterBridgePlugin(),
+    motionCanvas({buildForEditor: true}),
+    slideNotesPlugin(),
+    suppressMetaReload(),
+    editorHtmlBuildPlugin(),
+    openTabsPlugin(),
+  ],
 });

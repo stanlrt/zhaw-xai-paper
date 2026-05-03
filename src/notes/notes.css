@@ -66,11 +66,27 @@ section {
 }
 
 .label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 8px;
+}
+
+.owner {
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.owner:empty::before {
+  content: '—';
+  color: var(--border);
 }
 
 h1,

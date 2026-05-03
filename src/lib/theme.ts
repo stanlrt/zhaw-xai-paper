@@ -6,7 +6,11 @@ export const colors = {
   neuronStroke: '#64748b',
   edge: '#475569',
   active: '#22d3ee',
+  sae: '#f59e0b',
+  saeDim: '#7a4d05',
   accent: '#e6a700',
+  good: '#22c55e',
+  bad: '#ef4444',
 } as const;
 
 export const fonts = {

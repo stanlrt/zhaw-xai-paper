@@ -50,7 +50,7 @@ Live notes window synced to the presenter. Open in a second window/monitor.
 
 **Authoring notes:**
 
-In any scene file, replace `beginSlide(name)` with `slide(name, notes)`:
+In any scene file, replace `beginSlide(name)` with `slide(name, notes, owner?)`:
 
 ```ts
 import {slide} from '../lib/slide';
@@ -58,10 +58,10 @@ import {slide} from '../lib/slide';
 yield* slide('fwd:network-built', `
   3 input neurons, 4 hidden, 2 output. Fully connected.
   Mention: input = features, output = class scores.
-`);
+`, 'Alice');
 ```
 
-Notes are extracted at build time from these calls (regex on `slide('...', \`...\`)`). Vite hot-reloads on save.
+Owner is optional — shown in notes window header (current + next) so each presenter knows when their turn comes. Notes are extracted at build time (regex on `slide('id', \`notes\`, 'owner')`). Vite hot-reloads on save.
 
 **Notes window controls:**
 

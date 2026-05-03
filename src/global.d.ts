@@ -7,6 +7,10 @@ declare module '*?scene' {
 }
 
 declare module 'virtual:slide-notes' {
-  const notes: Record<string, string>;
+  export interface SlideMeta {
+    notes: string;
+    owner?: string;
+  }
+  const notes: Record<string, SlideMeta>;
   export default notes;
 }
