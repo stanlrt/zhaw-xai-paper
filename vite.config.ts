@@ -144,6 +144,10 @@ function editorHtmlBuildPlugin(): Plugin {
   // @motion-canvas/ui editor.html template and ship style.css as an asset.
   let isBuild = false;
   const projectEntryName = 'project';
+  const editorEntryName = 'editor-entry';
+  const editorEntryId = 'virtual:mc-editor-entry';
+  const resolvedEditorEntryId = '\0' + editorEntryId;
+  const projectFile = resolve(__dirname, 'src/project.ts');
   // Plugins loaded at runtime by editorBootstrap via `/@id/<spec>` dynamic
   // imports — Vite dev URLs that 404 in production. We bundle each as an
   // additional Rollup input and remap via importmap in the generated HTML.
@@ -155,12 +159,23 @@ function editorHtmlBuildPlugin(): Plugin {
       isBuild = c.command === 'build';
     },
     config() {
-      const input: Record<string, string> = {};
+      const input: Record<string, string> = {
+        [editorEntryName]: editorEntryId,
+      };
       for (const spec of runtimePlugins) {
         input[spec.replace(/[@/]/g, '_').replace(/^_+/, '')] =
           require.resolve(spec);
       }
       return {build: {rollupOptions: {input}}};
+    },
+    resolveId(id) {
+      if (id === editorEntryId) return resolvedEditorEntryId;
+    },
+    load(id) {
+      if (id === resolvedEditorEntryId) {
+        const projectImport = projectFile.replace(/\\/g, '/') + '?project';
+        return `import {editor} from '@motion-canvas/ui';\nimport project from ${JSON.stringify(projectImport)};\neditor(project);\n`;
+      }
     },
     generateBundle(_opts, bundle) {
       if (!isBuild) return;
@@ -187,20 +202,15 @@ function editorHtmlBuildPlugin(): Plugin {
           spec,
         );
       }
+      let projectChunkFile: string | undefined;
       for (const [file, chunk] of Object.entries(bundle)) {
         if (chunk.type !== 'chunk' || !chunk.isEntry) continue;
-        if (chunk.name === projectEntryName) entryFile = file;
+        if (chunk.name === editorEntryName) entryFile = file;
+        if (chunk.name === projectEntryName) projectChunkFile = file;
         const spec = pluginNameToSpec.get(chunk.name);
         if (spec) pluginEntries[spec] = file;
       }
-      if (!entryFile) {
-        for (const [file, chunk] of Object.entries(bundle)) {
-          if (chunk.type === 'chunk' && chunk.isEntry) {
-            entryFile = file;
-            break;
-          }
-        }
-      }
+      if (!entryFile) entryFile = projectChunkFile;
       if (!entryFile) return;
 
       const importMap: Record<string, string> = {};
