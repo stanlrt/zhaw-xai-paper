@@ -82,6 +82,7 @@ export default makeScene2D(function* (view) {
 
   const sentenceRow = createRef<Layout>();
   const predictionsCol = createRef<Layout>();
+  const BLOCK_GAP = 60;
 
   view.add(
     <>
@@ -91,7 +92,6 @@ export default makeScene2D(function* (view) {
         direction={'row'}
         gap={18}
         alignItems={'center'}
-        x={-720}
         y={20}
         offsetX={-1}
       />
@@ -101,7 +101,6 @@ export default makeScene2D(function* (view) {
         direction={'column'}
         gap={14}
         alignItems={'start'}
-        x={-720}
         y={20}
         offsetX={-1}
       />
@@ -119,9 +118,19 @@ export default makeScene2D(function* (view) {
       />,
     );
   }
-  // Anchor predictions next to preset sentence
+
+  const centeredXs = () => {
+    const sw = sentenceRow().width();
+    const pw = predictionsCol().width();
+    const totalW = sw + BLOCK_GAP + pw;
+    const baseX = -totalW / 2;
+    return {sentX: baseX, predX: baseX + sw + BLOCK_GAP};
+  };
+
   yield* waitFor(0);
-  predictionsCol().x(-720 + sentenceRow().width() + 60);
+  const init = centeredXs();
+  sentenceRow().x(init.sentX);
+  predictionsCol().x(init.predX);
 
   for (let i = 0; i < STEPS.length; i++) {
     const step = STEPS[i];
@@ -211,9 +220,10 @@ export default makeScene2D(function* (view) {
     const fromLocal = fromAbs.transformAsPoint(viewMatrix);
     const toLocal = toAbs.transformAsPoint(viewMatrix);
 
-    // Predictions list slides right to stay next to sentence
-    const newSentenceWidth = sentenceRow().width();
-    const newPredX = -720 + newSentenceWidth + 60;
+    // Recenter whole block (sentence + gap + predictions) horizontally
+    const target = centeredXs();
+    const sentDx = target.sentX - sentenceRow().x();
+    const toLocalCentered = {x: toLocal.x + sentDx, y: toLocal.y};
 
     const ghost = createRef<Txt>();
     view.add(
@@ -233,11 +243,12 @@ export default makeScene2D(function* (view) {
     top.counter().opacity(0);
 
     yield* all(
-      ghost().x(toLocal.x, 0.6),
-      ghost().y(toLocal.y, 0.6),
+      ghost().x(toLocalCentered.x, 0.6),
+      ghost().y(toLocalCentered.y, 0.6),
       ghost().fontSize(SENT_FONT, 0.6),
       ghost().fill(colors.text, 0.6),
-      predictionsCol().x(newPredX, 0.6),
+      sentenceRow().x(target.sentX, 0.6),
+      predictionsCol().x(target.predX, 0.6),
       ...others.map(r =>
         all(r.row().opacity(0, 0.45), r.row().scale(0.7, 0.45)),
       ),
