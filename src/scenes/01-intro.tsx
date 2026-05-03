@@ -184,7 +184,7 @@ export default makeScene2D(function* (view) {
 
     yield* all(
       ...rows.map(r =>
-        tween(0.9, t => {
+        tween(0.5, t => {
           const v = r.target * easeOutCubic(t);
           r.sig(v);
           r.counter().text((v * 100).toFixed(1) + '%');
@@ -192,7 +192,7 @@ export default makeScene2D(function* (view) {
       ),
     );
 
-    yield* waitFor(0.6);
+    yield* waitFor(0.3);
 
     const top = rows[0];
     const others = rows.slice(1);
@@ -257,13 +257,13 @@ export default makeScene2D(function* (view) {
     placeholder().opacity(1);
     ghost().remove();
     predictionsCol().removeChildren();
-
-    // Recenter sentence now that predictions column is empty
-    yield* waitFor(0);
-    const finalSentX = -sentenceRow().width() / 2;
-    yield* sentenceRow().x(finalSentX, 0.4);
-    predictionsCol().x(finalSentX + sentenceRow().width() + BLOCK_GAP);
   }
+
+  // Recenter sentence after final prediction (predictions column now empty)
+  yield* waitFor(0);
+  const finalSentX = -sentenceRow().width() / 2;
+  yield* sentenceRow().x(finalSentX, 0.4);
+  predictionsCol().x(finalSentX + sentenceRow().width() + BLOCK_GAP);
 
   yield* slide('intro:done', `
     Sentence done. But HOW does model pick at each step? What lives inside?
