@@ -263,7 +263,7 @@ window.addEventListener('keydown', (e) => {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sparse Feature Circuits — Presentation</title>
-    <style>html,body{margin:0;height:100%;background:#000;color:#eee;font-family:system-ui,sans-serif}#hint{position:fixed;left:12px;bottom:8px;font-size:12px;opacity:.5;pointer-events:none}</style>
+    <style>html,body{margin:0;height:100%;background:#000;color:#eee;font-family:system-ui,sans-serif}#hint{position:fixed;left:12px;bottom:8px;font-size:12px;opacity:.5;pointer-events:none}:fullscreen #hint,:-webkit-full-screen #hint{display:none}</style>
   </head>
   <body>
     <div id="hint">Space play · → snap next · ← snap prev · F fullscreen · N open notes${notesHtmlFile ? ` (<a style="color:#9cf" href="./${notesHtmlFile}" target="_blank" rel="noopener">notes</a>)` : ''}</div>
