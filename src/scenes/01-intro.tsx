@@ -257,6 +257,12 @@ export default makeScene2D(function* (view) {
     placeholder().opacity(1);
     ghost().remove();
     predictionsCol().removeChildren();
+
+    // Recenter sentence now that predictions column is empty
+    yield* waitFor(0);
+    const finalSentX = -sentenceRow().width() / 2;
+    yield* sentenceRow().x(finalSentX, 0.4);
+    predictionsCol().x(finalSentX + sentenceRow().width() + BLOCK_GAP);
   }
 
   yield* slide('intro:done', `
