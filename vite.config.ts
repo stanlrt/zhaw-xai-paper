@@ -1,11 +1,11 @@
-import {defineConfig, Plugin} from 'vite';
-import {createRequire} from 'module';
-import {readFileSync, readdirSync, statSync} from 'fs';
-import {resolve, dirname, join, basename, extname} from 'path';
-import {fileURLToPath} from 'url';
+import { readdirSync, readFileSync, statSync } from "fs";
+import { createRequire } from "module";
+import { basename, dirname, extname, join, resolve } from "path";
+import { fileURLToPath } from "url";
+import { defineConfig, Plugin } from "vite";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const require = createRequire(import.meta.url);
-const motionCanvas = require('@motion-canvas/vite-plugin').default;
+const motionCanvas = require("@motion-canvas/vite-plugin").default;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -35,17 +35,17 @@ interface SlideMeta {
 }
 
 function extractNotes(): Record<string, SlideMeta> {
-  const dir = resolve(__dirname, 'src/scenes');
+  const dir = resolve(__dirname, "src/scenes");
   const notes: Record<string, SlideMeta> = {};
   for (const file of walk(dir)) {
     const sceneName = basename(file, extname(file));
-    const src = readFileSync(file, 'utf8');
+    const src = readFileSync(file, "utf8");
     let m: RegExpExecArray | null;
     SLIDE_RE.lastIndex = 0;
     while ((m = SLIDE_RE.exec(src))) {
       const fullId = `${sceneName}:${m[1]}`;
       notes[fullId] = {
-        notes: m[2].replace(/^[ \t]+/gm, '').trim(),
+        notes: m[2].replace(/^[ \t]+/gm, "").trim(),
         owner: m[3] || undefined,
       };
     }
@@ -54,10 +54,10 @@ function extractNotes(): Record<string, SlideMeta> {
 }
 
 function slideNotesPlugin(): Plugin {
-  const ID = 'virtual:slide-notes';
-  const RESOLVED = '\0' + ID;
+  const ID = "virtual:slide-notes";
+  const RESOLVED = "\0" + ID;
   return {
-    name: 'slide-notes',
+    name: "slide-notes",
     resolveId(id) {
       if (id === ID) return RESOLVED;
     },
@@ -68,8 +68,8 @@ function slideNotesPlugin(): Plugin {
     },
     handleHotUpdate(ctx) {
       if (
-        ctx.file.includes('/src/scenes/') ||
-        ctx.file.includes('\\src\\scenes\\')
+        ctx.file.includes("/src/scenes/") ||
+        ctx.file.includes("\\src\\scenes\\")
       ) {
         const mod = ctx.server.moduleGraph.getModuleById(RESOLVED);
         if (mod) {
@@ -85,35 +85,36 @@ function presenterBridgePlugin(): Plugin {
   const SCRIPT =
     '<script type="module" src="/src/lib/presenter-bridge.ts"></script>';
   return {
-    name: 'inject-presenter-bridge',
-    enforce: 'pre',
+    name: "inject-presenter-bridge",
+    enforce: "pre",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!req.url) return next();
-        if (req.url.includes('notes')) return next();
-        const u = req.url.split('?')[0];
-        const isEditor = u === '/' || u === '/index.html' || /^\/[^./]+\/?$/.test(u);
+        if (req.url.includes("notes")) return next();
+        const u = req.url.split("?")[0];
+        const isEditor =
+          u === "/" || u === "/index.html" || /^\/[^./]+\/?$/.test(u);
         if (!isEditor) return next();
 
         const origEnd = res.end.bind(res);
         res.end = function (chunk: any, ...args: any[]) {
           try {
-            const ct = String(res.getHeader('content-type') || '');
+            const ct = String(res.getHeader("content-type") || "");
             if (
-              ct.includes('text/html') &&
+              ct.includes("text/html") &&
               chunk &&
-              typeof chunk !== 'function'
+              typeof chunk !== "function"
             ) {
               const buf = Buffer.isBuffer(chunk)
                 ? chunk
                 : Buffer.from(String(chunk));
-              let html = buf.toString('utf8');
+              let html = buf.toString("utf8");
               if (
-                html.includes('</body>') &&
-                !html.includes('presenter-bridge')
+                html.includes("</body>") &&
+                !html.includes("presenter-bridge")
               ) {
-                html = html.replace('</body>', SCRIPT + '</body>');
-                res.removeHeader('content-length');
+                html = html.replace("</body>", SCRIPT + "</body>");
+                res.removeHeader("content-length");
                 return origEnd(html, ...args);
               }
             }
@@ -128,10 +129,10 @@ function presenterBridgePlugin(): Plugin {
 
 function suppressMetaReload(): Plugin {
   return {
-    name: 'suppress-meta-reload',
-    enforce: 'post',
+    name: "suppress-meta-reload",
+    enforce: "post",
     handleHotUpdate(ctx) {
-      if (ctx.file.endsWith('.meta')) {
+      if (ctx.file.endsWith(".meta")) {
         return [];
       }
     },
@@ -144,16 +145,16 @@ function presentBuildPlugin(): Plugin {
   // fullscreen and binds keyboard nav. presenter-bridge wires the
   // BroadcastChannel to notes.html.
   let isBuild = false;
-  const presentEntryName = 'present-entry';
-  const presentEntryId = 'virtual:mc-present-entry';
-  const resolvedPresentEntryId = '\0' + presentEntryId;
-  const projectFile = resolve(__dirname, 'src/project.ts');
-  const notesHtmlPath = resolve(__dirname, 'notes.html');
+  const presentEntryName = "present-entry";
+  const presentEntryId = "virtual:mc-present-entry";
+  const resolvedPresentEntryId = "\0" + presentEntryId;
+  const projectFile = resolve(__dirname, "src/project.ts");
+  const notesHtmlPath = resolve(__dirname, "notes.html");
   return {
-    name: 'mc-present-build',
-    apply: 'build',
+    name: "mc-present-build",
+    apply: "build",
     configResolved(c) {
-      isBuild = c.command === 'build';
+      isBuild = c.command === "build";
     },
     config() {
       return {
@@ -172,8 +173,11 @@ function presentBuildPlugin(): Plugin {
     },
     load(id) {
       if (id !== resolvedPresentEntryId) return;
-      const projectImport = projectFile.replace(/\\/g, '/') + '?project';
-      const bridgeImport = resolve(__dirname, 'src/lib/presenter-bridge.ts').replace(/\\/g, '/');
+      const projectImport = projectFile.replace(/\\/g, "/") + "?project";
+      const bridgeImport = resolve(
+        __dirname,
+        "src/lib/presenter-bridge.ts",
+      ).replace(/\\/g, "/");
       return `\
 import {Presenter} from '@motion-canvas/core';
 import ${JSON.stringify(bridgeImport)};
@@ -248,10 +252,17 @@ window.addEventListener('keydown', (e) => {
       let entryFile: string | undefined;
       let notesHtmlFile: string | undefined;
       for (const [file, chunk] of Object.entries(bundle)) {
-        if (chunk.type === 'chunk' && chunk.isEntry && chunk.name === presentEntryName) {
+        if (
+          chunk.type === "chunk" &&
+          chunk.isEntry &&
+          chunk.name === presentEntryName
+        ) {
           entryFile = file;
         }
-        if (chunk.type === 'asset' && (chunk.fileName === 'notes.html' || chunk.name === 'notes.html')) {
+        if (
+          chunk.type === "asset" &&
+          (chunk.fileName === "notes.html" || chunk.name === "notes.html")
+        ) {
           notesHtmlFile = chunk.fileName;
         }
       }
@@ -266,12 +277,12 @@ window.addEventListener('keydown', (e) => {
     <style>html,body{margin:0;height:100%;background:#000;color:#eee;font-family:system-ui,sans-serif}#hint{position:fixed;left:12px;bottom:8px;font-size:12px;opacity:.5;pointer-events:none}:fullscreen #hint,:-webkit-full-screen #hint{display:none}</style>
   </head>
   <body>
-    <div id="hint">Space play · → snap next · ← snap prev · F fullscreen · N open notes${notesHtmlFile ? ` (<a style="color:#9cf" href="./${notesHtmlFile}" target="_blank" rel="noopener">notes</a>)` : ''}</div>
+    <div id="hint">Space play · → snap next · ← snap prev · F fullscreen · N open notes${notesHtmlFile ? ` (<a style="color:#9cf" href="./${notesHtmlFile}" target="_blank" rel="noopener">notes</a>)` : ""}</div>
     <script type="module" src="./${entryFile}"></script>
   </body>
 </html>
 `;
-      this.emitFile({type: 'asset', fileName: 'index.html', source: html});
+      this.emitFile({ type: "asset", fileName: "index.html", source: html });
     },
   };
 }
@@ -279,31 +290,31 @@ window.addEventListener('keydown', (e) => {
 function openTabsPlugin(): Plugin {
   let opened = false;
   return {
-    name: 'open-tabs',
-    apply: 'serve',
+    name: "open-tabs",
+    apply: "serve",
     configureServer(server) {
       const fire = async () => {
         if (opened) return;
         opened = true;
         try {
           const a = server.httpServer?.address();
-          if (!a || typeof a === 'string') return;
+          if (!a || typeof a === "string") return;
           const base = `http://localhost:${a.port}`;
-          const {default: open} = await import('open');
-          await open(`${base}/`);
+          const { default: open } = await import("open");
+          await open(`${base}?present`);
           await open(`${base}/notes.html`);
         } catch (err) {
-          console.error('[open-tabs] failed', err);
+          console.error("[open-tabs] failed", err);
         }
       };
-      server.httpServer?.once('listening', () => setTimeout(fire, 300));
+      server.httpServer?.once("listening", () => setTimeout(fire, 300));
     },
   };
 }
 
 export default defineConfig({
-  base: './',
-  server: {open: false},
+  base: "./",
+  server: { open: false },
   plugins: [
     presenterBridgePlugin(),
     motionCanvas(),

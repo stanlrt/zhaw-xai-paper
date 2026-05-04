@@ -1,12 +1,12 @@
-import {makeScene2D, Layout, Txt} from '@motion-canvas/2d';
-import {createRef, all, waitFor, chain, tween, easeOutCubic, createSignal} from '@motion-canvas/core';
-import {colors, fonts, sizes} from '../lib/theme';
-import {slide} from '../lib/slide';
-import {addBackground} from '../lib/bg';
+import { Layout, makeScene2D, Txt } from '@motion-canvas/2d';
+import { all, chain, createRef, createSignal, easeOutCubic, tween, waitFor } from '@motion-canvas/core';
+import { addBackground } from '../lib/bg';
+import { slide } from '../lib/slide';
+import { colors, fonts, sizes } from '../lib/theme';
 
 interface Step {
   context: string;
-  predictions: {word: string; p: number}[];
+  predictions: { word: string; p: number }[];
 }
 
 const PRESET_WORDS = ['The', 'quick', 'brown'];
@@ -15,21 +15,21 @@ const STEPS: Step[] = [
   {
     context: 'brown',
     predictions: [
-      {word: 'fox', p: 0.55},
-      {word: 'dog', p: 0.18},
-      {word: 'bear', p: 0.12},
-      {word: 'hen', p: 0.08},
-      {word: 'owl', p: 0.07},
+      { word: 'fox', p: 0.55 },
+      { word: 'dog', p: 0.18 },
+      { word: 'bear', p: 0.12 },
+      { word: 'hen', p: 0.08 },
+      { word: 'owl', p: 0.07 },
     ],
   },
   {
     context: 'fox',
     predictions: [
-      {word: 'jumps', p: 0.48},
-      {word: 'runs', p: 0.22},
-      {word: 'sits', p: 0.14},
-      {word: 'hides', p: 0.09},
-      {word: 'leaps', p: 0.07},
+      { word: 'jumps', p: 0.48 },
+      { word: 'runs', p: 0.22 },
+      { word: 'sits', p: 0.14 },
+      { word: 'hides', p: 0.09 },
+      { word: 'leaps', p: 0.07 },
     ],
   },
 ];
@@ -42,6 +42,7 @@ export default makeScene2D(function* (view) {
 
   const title = createRef<Txt>();
   const subtitle = createRef<Txt>();
+  const paperName = createRef<Txt>();
 
   view.add(
     <>
@@ -52,7 +53,7 @@ export default makeScene2D(function* (view) {
         fontFamily={fonts.sans}
         fill={colors.text}
         opacity={0}
-        text={'Explainable AI'}
+        text={'XAI - Paper presentation'}
       />
       <Txt
         ref={subtitle}
@@ -61,24 +62,31 @@ export default makeScene2D(function* (view) {
         fontFamily={fonts.sans}
         fill={colors.textMuted}
         opacity={0}
-        text={'"Stochastic parrots"? Or something more?'}
+        text={'"Are LLMs really just stochastic parrots?"'}
+      />
+      <Txt
+        ref={paperName}
+        y={-150}
+        fontSize={20}
+        fontFamily={fonts.sans}
+        fill={colors.textMuted}
+        opacity={0}
+        text={'Sparse Feature Circuits — Marks et al., ICLR 2025'}
       />
     </>,
   );
 
   yield* title().opacity(1, 0.6);
   yield* slide('intro:title', `
-    Paper: "Sparse Feature Circuits" — Marks et al., ICLR 2025.
-    Hook: "LLMs are just stochastic parrots / next-word predictors."
-    Today: XAI to test that claim.
-    ~30s.
+    You might have heard: "LLMs are just stochastic parrots / next-word predictors", without any real reasoning. But is that true?
+    Today we will see how XAI can help answer that question, by presenting paper "Sparse Feature Circuits" — Marks et al., ICLR 2025.
   `, 'Stanislas');
 
   yield* subtitle().opacity(1, 0.5);
-  yield* slide('intro:hook', `
-    Frame: open the black box.
-    ~15s.
-  `, 'Stanislas');
+  yield* slide('intro:hook');
+
+  yield* paperName().opacity(1, 0.5);
+  yield* slide('intro:paperName');
 
   const sentenceRow = createRef<Layout>();
   const predictionsCol = createRef<Layout>();
@@ -124,7 +132,7 @@ export default makeScene2D(function* (view) {
     const pw = predictionsCol().width();
     const totalW = sw + BLOCK_GAP + pw;
     const baseX = -totalW / 2;
-    return {sentX: baseX, predX: baseX + sw + BLOCK_GAP};
+    return { sentX: baseX, predX: baseX + sw + BLOCK_GAP };
   };
 
   yield* waitFor(0);
@@ -142,7 +150,7 @@ export default makeScene2D(function* (view) {
       sig: ReturnType<typeof createSignal<number>>;
       target: number;
       isTop: boolean;
-      pred: {word: string; p: number};
+      pred: { word: string; p: number };
     }
 
     const rows: RowState[] = step.predictions.map((pred, k) => {
@@ -177,7 +185,7 @@ export default makeScene2D(function* (view) {
           />
         </Layout>,
       );
-      return {row, counter, word, sig, target: pred.p, isTop, pred};
+      return { row, counter, word, sig, target: pred.p, isTop, pred };
     });
 
     yield* chain(...rows.map(r => r.row().opacity(1, 0.12)));
@@ -223,7 +231,7 @@ export default makeScene2D(function* (view) {
     // Recenter whole block (sentence + gap + predictions) horizontally
     const target = centeredXs();
     const sentDx = target.sentX - sentenceRow().x();
-    const toLocalCentered = {x: toLocal.x + sentDx, y: toLocal.y};
+    const toLocalCentered = { x: toLocal.x + sentDx, y: toLocal.y };
 
     const ghost = createRef<Txt>();
     view.add(
@@ -265,10 +273,7 @@ export default makeScene2D(function* (view) {
   yield* sentenceRow().x(finalSentX, 0.4);
   predictionsCol().x(finalSentX + sentenceRow().width() + BLOCK_GAP);
 
-  yield* slide('intro:done', `
-    Sentence done. But HOW does model pick at each step? What lives inside?
-    ~10s.
-  `, 'Stanislas');
+  yield* slide('intro:done');
 
   yield* waitFor(0.2);
 });

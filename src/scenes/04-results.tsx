@@ -1,9 +1,9 @@
-import {makeScene2D, Txt} from '@motion-canvas/2d';
-import {createRef, all, waitFor} from '@motion-canvas/core';
-import {colors, fonts, sizes} from '../lib/theme';
-import {slide} from '../lib/slide';
-import {addBackground} from '../lib/bg';
-import {makeCounter} from '../lib/counter';
+import { makeScene2D, Txt } from '@motion-canvas/2d';
+import { all, createRef, waitFor } from '@motion-canvas/core';
+import { addBackground } from '../lib/bg';
+import { makeCounter } from '../lib/counter';
+import { slide } from '../lib/slide';
+import { colors, fonts, sizes } from '../lib/theme';
 
 export default makeScene2D(function* (view) {
   addBackground(view);
@@ -70,22 +70,20 @@ export default makeScene2D(function* (view) {
 
   yield* title().opacity(1, 0.5);
   yield* slide('results:title', `
-    Does it work? Crowd evaluation: rate whether labelled neuron actually matches its description.
-    ~10s.
+    To verify if actually more interpretable: authors ran corwd-sourced evaluations.
+    They asked human crowdworkers to give their interpretation of neurons by looking at inputs and activations, like we did.
   `, 'Stanislas');
 
   yield* all(left.handle.ref().opacity(1, 0.3), labelLeft().opacity(1, 0.3));
   yield* left.handle.countTo(52.8, 1.4);
   yield* slide('results:raw', `
-    Raw network: 52.8% — barely above coin flip. Polysemantic neurons hard to label.
-    ~10s.
+    Raw network: 52.8% — barely above coin flip. Basically guessing.
   `, 'Stanislas');
 
   yield* all(right.handle.ref().opacity(1, 0.3), labelRight().opacity(1, 0.3));
   yield* right.handle.countTo(81.5, 1.4);
   yield* slide('results:sae', `
     SAE: 81.5%. Big jump in interpretability. Sparse features = real concepts.
-    ~10s.
   `, 'Stanislas');
 
   yield* waitFor(0.2);

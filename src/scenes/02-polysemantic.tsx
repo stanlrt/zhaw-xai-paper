@@ -1,10 +1,10 @@
-import {makeScene2D, Txt, Layout, Rect, Circle, Line} from '@motion-canvas/2d';
-import {createRef, all, chain, waitFor} from '@motion-canvas/core';
-import {colors, fonts, sizes} from '../lib/theme';
-import {slide} from '../lib/slide';
-import {addBackground} from '../lib/bg';
-import {buildNetwork, slideEdgeHighlight} from '../lib/network';
-import {setupSlide} from '../lib/slide-layout';
+import { Circle, Layout, Line, makeScene2D, Rect, Txt } from '@motion-canvas/2d';
+import { all, chain, createRef, waitFor } from '@motion-canvas/core';
+import { addBackground } from '../lib/bg';
+import { buildNetwork, slideEdgeHighlight } from '../lib/network';
+import { slide } from '../lib/slide';
+import { setupSlide } from '../lib/slide-layout';
+import { colors, fonts, sizes } from '../lib/theme';
 
 interface SparseFeature {
   idx: number;
@@ -31,9 +31,9 @@ const TRIALS: LMTrial[] = [
     inputPattern: [0, 2], hidden1Pattern: [1, 2, 4], hidden2Pattern: [0, 2, 3],
     predictedTokenIdx: 0,
     features: [
-      {idx: 1,  name: 'feline-animal token'},
-      {idx: 4,  name: "preposition 'on'"},
-      {idx: 8,  name: 'determiner before noun'},
+      { idx: 1, name: 'feline-animal token' },
+      { idx: 4, name: "preposition 'on'" },
+      { idx: 8, name: 'determiner before noun' },
     ],
   },
   {
@@ -41,8 +41,8 @@ const TRIALS: LMTrial[] = [
     inputPattern: [1, 2], hidden1Pattern: [1, 2, 3], hidden2Pattern: [0, 2, 4],
     predictedTokenIdx: 1,
     features: [
-      {idx: 2,  name: 'verb of opening (past tense)'},
-      {idx: 6,  name: '3rd-person sing. pronoun'},
+      { idx: 2, name: 'verb of opening (past tense)' },
+      { idx: 6, name: '3rd-person sing. pronoun' },
     ],
   },
   {
@@ -50,9 +50,9 @@ const TRIALS: LMTrial[] = [
     inputPattern: [0, 1], hidden1Pattern: [0, 1, 2, 4], hidden2Pattern: [1, 2, 3],
     predictedTokenIdx: 2,
     features: [
-      {idx: 3,  name: 'container noun (cup, bowl)'},
-      {idx: 7,  name: "partitive 'of'"},
-      {idx: 10, name: 'past-tense verb of consumption'},
+      { idx: 3, name: 'container noun (cup, bowl)' },
+      { idx: 7, name: "partitive 'of'" },
+      { idx: 10, name: 'past-tense verb of consumption' },
     ],
   },
 ];
@@ -64,7 +64,7 @@ const SPARSE_GAP = 50;
 export default makeScene2D(function* (view) {
   addBackground(view);
 
-  const layout = setupSlide(view, {title: "Inside an LLM's MLP block"});
+  const layout = setupSlide(view, { title: "Inside an LLM's MLP block" });
 
   const NET_X = 0;
   const NET_Y = 0;
@@ -110,7 +110,7 @@ export default makeScene2D(function* (view) {
     layers: [3, 5, 5, 3],
     layerGap: LAYER_GAP,
     neuronGap: NEURON_GAP,
-    origin: {x: NET_X, y: NET_Y},
+    origin: { x: NET_X, y: NET_Y },
   });
 
   // Vocab boxes right of output layer, vertically aligned to output neurons
@@ -176,10 +176,8 @@ export default makeScene2D(function* (view) {
     ...vocabLabels.map(l => l().opacity(1, 0.4)),
   );
   yield* slide('poly:network', `
-    Tiny LLM MLP block. Input = partial sentence (tokens embed into 3 input units).
-    Output = top-3 next-token candidates.
-    Hidden layers: where polysemy hides.
-    ~15s.
+    We look at very simple MLP block of an LLM. Predicts 3 possible next tokens based on given prompt.
+    [play 3 anims]
   `, 'Stanislas');
 
   for (let i = 0; i < TRIALS.length; i++) {
@@ -215,10 +213,9 @@ export default makeScene2D(function* (view) {
     );
 
     yield* slide(`poly:trial-${i}`, `
-      Prompt "${t.sentence.join(' ')}" → predicts "${VOCAB[t.predictedTokenIdx]}".
-      Different prompts, different predictions — but SAME hidden neurons fire each time.
-      Each hidden neuron is doing many unrelated jobs at once. Polysemy.
-      ~12s.
+       Do you observe anything interesting?
+    Polysemantic: same neurons encapsulate different meanings. In real LLM: can be thousands.
+    So how can you interpret each neuron?
     `, 'Stanislas');
 
     yield* all(...sentenceRow().children().map(c => (c as Txt).opacity(0, 0.25)));
@@ -235,9 +232,7 @@ export default makeScene2D(function* (view) {
   yield* layout.title().opacity(1, 0.35);
 
   yield* slide('sae:pivot', `
-    Same network. Now we ask: can we MAKE these polysemantic neurons interpretable?
-    Pick one layer (layer 1). Attach a Sparse Autoencoder.
-    ~12s.
+   We introduce the idea of a Sparse Autoencoder after the layer we want to make explainable.
   `, 'Stanislas');
 
   // Erase right side: hidden2, output, lines from h1 onward, vocab boxes
@@ -256,12 +251,7 @@ export default makeScene2D(function* (view) {
     arrowLabel().opacity(0, 0.5),
   );
 
-  yield* slide('sae:erase', `
-    Discard everything past layer 1 for this view.
-    What remains: input → hidden layer 1 (the "hidden vector").
-    5 dense numbers, polysemantic.
-    ~12s.
-  `, 'Stanislas');
+  yield* slide('sae:erase');
 
   // ---- Build SAE: sparse column where output layer was ----
   const SPARSE_X = outputX;
@@ -363,10 +353,12 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('sae:attach', `
-    SAE = small extra autoencoder trained on hidden-1 activations.
-    Encoder: 5 dense numbers → 12 sparse slots. Most stay zero.
-    Each lit slot = one named feature. LLM forward pass unchanged.
-    ~15s.
+      It has a single hidden layer, but many more neurons. This means each neuron has to carry a lot less meaning, ideally a single one.
+      
+      We also enforce a sparsity constraint.
+      This means that for any given input, only a few SAE neurons will be active.
+
+      Suddenly, it becomes a lot easier to interpret.
   `, 'Stanislas');
 
   // ---- SAE trials: same prompts, now show sparse feature ----
