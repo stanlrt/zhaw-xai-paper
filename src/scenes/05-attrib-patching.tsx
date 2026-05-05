@@ -41,8 +41,47 @@ const MAGENTA = '#d946ef';        // backward/gradient flow
 //   "is"  wins on patch input (bad/red)
 
 const NOTES_X = 220;
-const NOTES_W = 580;
 const NOTES_COL_W = 140;
+const NOTES_COLS_MAX = 4;
+const PANEL_PAD = 28;
+const NOTES_W = PANEL_PAD * 2 + NOTES_COLS_MAX * NOTES_COL_W;
+const PANEL_H = 760;
+const PANEL_TOP = -PANEL_H / 2;
+const PANEL_LEFT = NOTES_X;
+const PANEL_RIGHT = PANEL_LEFT + NOTES_W;
+const PANEL_CX = PANEL_LEFT + NOTES_W / 2;
+
+// vertical layout within panel
+const SECTION_TITLE_Y = PANEL_TOP + PANEL_PAD + 8;
+const COL_HDR_Y = SECTION_TITLE_Y + 44;
+const HDR_TO_ROW_GAP = 44;
+const FIRST_ROW_Y = COL_HDR_Y + HDR_TO_ROW_GAP;
+const ROW_H = 26;
+const SECTION_GAP = 56;
+const FORMULA_Y = FIRST_ROW_Y + FEATURES * ROW_H + 30;
+const BASELINE_HDR_Y = FORMULA_Y + SECTION_GAP;
+const BASELINE_VAL_Y = BASELINE_HDR_Y + 32;
+const ALGCOST_HDR_Y = BASELINE_VAL_Y + SECTION_GAP;
+const ALGCOST_SUB_Y = ALGCOST_HDR_Y + 30;
+const COST_LINE1_Y = ALGCOST_SUB_Y + 32;
+const COST_LINE2_Y = COST_LINE1_Y + 28;
+
+// reusable text styles
+const txtSection = {
+  fontSize: 20, fontFamily: fonts.sans, fill: colors.text,
+};
+const txtCaption = {
+  fontSize: 14, fontFamily: fonts.mono, fill: colors.textMuted,
+};
+const txtColHdr = {
+  fontSize: 16, fontFamily: fonts.mono,
+};
+const txtRow = {
+  fontSize: 16, fontFamily: fonts.mono,
+};
+const txtCost = {
+  fontSize: 18, fontFamily: fonts.mono, fill: colors.textMuted,
+};
 
 const fmt = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2);
 
@@ -354,24 +393,55 @@ export default makeScene2D(function* (view) {
 
   // ---------- notes panel ----------
   const notesBg = createRef<Rect>();
-  const notesTitle = createRef<Txt>();
-  const passCounter = createRef<Txt>();
+  const sectionTitle = createRef<Txt>();
+  const formula = createRef<Txt>();
+  const baselineHdr = createRef<Txt>();
+  const baselineVal = createRef<Txt>();
+  const algCostHdr = createRef<Txt>();
+  const algCostSub = createRef<Txt>();
+  const fwdC = makeCounter(0, 0, ' forward passes', {
+    x: PANEL_CX, y: COST_LINE1_Y,
+    ...txtCost, opacity: 0,
+  });
+  const bwdC = makeCounter(0, 0, ' backward propagation', {
+    x: PANEL_CX, y: COST_LINE2_Y,
+    ...txtCost, opacity: 0,
+  });
   view.add(
     <>
       <Rect ref={notesBg}
-        x={NOTES_X + NOTES_W / 2} y={0} width={NOTES_W} height={760}
+        x={PANEL_CX} y={0} width={NOTES_W} height={PANEL_H}
         fill={'#0b1220'} stroke={colors.edge} lineWidth={1} radius={10} opacity={0}
       />
-      <Txt ref={notesTitle}
-        x={NOTES_X + 20} y={-350} offsetX={-1}
-        fontSize={22} fontFamily={fonts.sans} fill={colors.text}
-        opacity={0} text={'Notes'}
+      <Txt ref={sectionTitle}
+        x={PANEL_CX} y={SECTION_TITLE_Y}
+        {...txtSection} opacity={0}
+        text={'Values for each SAE neuron'}
       />
-      <Txt ref={passCounter}
-        x={NOTES_X + NOTES_W - 20} y={-350} offsetX={1}
-        fontSize={22} fontFamily={fonts.mono} fill={colors.accent}
-        opacity={0} text={''}
+      <Txt ref={formula}
+        x={PANEL_CX} y={FORMULA_Y}
+        fontSize={18} fontFamily={fonts.mono} fill={colors.sae}
+        opacity={0} text={'IE_atp[i] = ∇ₐm[i] · (a_poisoned[i] − a_clean[i])'}
       />
+      <Txt ref={baselineHdr}
+        x={PANEL_CX} y={BASELINE_HDR_Y}
+        {...txtSection} opacity={0} text={'Baseline'}
+      />
+      <Txt ref={baselineVal}
+        x={PANEL_CX} y={BASELINE_VAL_Y}
+        {...txtRow} fill={colors.active}
+        opacity={0} text={'out_clean = +0.31'}
+      />
+      <Txt ref={algCostHdr}
+        x={PANEL_CX} y={ALGCOST_HDR_Y}
+        {...txtSection} opacity={0} text={'Algorithm cost'}
+      />
+      <Txt ref={algCostSub}
+        x={PANEL_CX} y={ALGCOST_SUB_Y}
+        {...txtCaption} opacity={0} text={'For 12 SAE neurons'}
+      />
+      {fwdC.node}
+      {bwdC.node}
     </>,
   );
 
@@ -379,12 +449,13 @@ export default makeScene2D(function* (view) {
   const notesRows: Txt[] = [];
   function addNoteRow(text: string, color: string, slot: number, col = 0): Txt {
     const ref = createRef<Txt>();
-    const x = NOTES_X + 20 + col * NOTES_COL_W;
-    const y = -300 + slot * 26;
+    const x = PANEL_LEFT + PANEL_PAD + col * NOTES_COL_W;
+    const y = slot === 0 ? COL_HDR_Y : FIRST_ROW_Y + (slot - 1) * ROW_H;
+    const style = slot === 0 ? txtColHdr : txtRow;
     view.add(
       <Txt ref={ref}
         x={x} y={y} offsetX={-1}
-        fontSize={16} fontFamily={fonts.mono} fill={color}
+        {...style} fill={color}
         opacity={0} text={text}
       />,
     );
@@ -423,6 +494,11 @@ export default makeScene2D(function* (view) {
     ...edgesHS.map(e => e().end(1, 0.5)),
     ...edgesSO.map(e => e().end(1, 0.5)),
     notesBg().opacity(0.6, 0.4),
+    sectionTitle().opacity(1, 0.4),
+    algCostHdr().opacity(1, 0.4),
+    algCostSub().opacity(1, 0.4),
+    fwdC.handle.ref().opacity(1, 0.4),
+    bwdC.handle.ref().opacity(1, 0.4),
   );
 
   yield* slide('atp:setup', `
@@ -486,8 +562,14 @@ export default makeScene2D(function* (view) {
         t().opacity(1, 0.2),
       )),
     );
-    // edges SAE → output sweep
-    yield* all(...edgesSO.map(e => slideEdgeHighlight(view, e(), glowColor, 0.4)));
+    // edges SAE → output sweep — only edges leading to winning output
+    // edgesSO order per feature: [k*2] → "are", [k*2+1] → "is"
+    const winnerOffset = glowColor === colors.active ? 0 : 1;
+    yield* all(
+      ...edgesSO
+        .filter((_, idx) => idx % 2 === winnerOffset)
+        .map(e => slideEdgeHighlight(view, e(), glowColor, 0.4)),
+    );
     // fill the winning output box: clean→"are", patch→"is" (flip text to dark for contrast)
     if (glowColor === colors.active) {
       yield* all(
@@ -515,7 +597,7 @@ export default makeScene2D(function* (view) {
   // Run 1: forward on PATCH input — record a_poisoned for every feature
   yield* forward(PATCH, colors.bad, 'boy');
   yield* setMetric(-0.42, 0.3);
-  passCounter().text('Naive: 1 pass');
+  yield* fwdC.handle.countTo(1, 0.2);
 
   // slide a_poisoned values into col 0
   const patchRowsNaive: Txt[] = [];
@@ -535,7 +617,7 @@ export default makeScene2D(function* (view) {
   // Run 2: forward on CLEAN — establish baseline metric, cache a_clean values
   yield* forward(CLEAN, colors.active, 'boys');
   yield* setMetric(out_clean, 0.3);
-  passCounter().text('Naive: 2 passes');
+  yield* fwdC.handle.countTo(2, 0.2);
 
   const cleanRowsNaive: Txt[] = [];
   for (let i = 0; i < FEATURES; i++) {
@@ -547,9 +629,10 @@ export default makeScene2D(function* (view) {
   }
   yield* sequence(0.03, ...cleanRowsNaive.map(r => r.opacity(1, 0.2)));
 
-  // out_clean badge below cache
-  const mCleanRow = addNoteRow('out_clean = +0.31', colors.accent, FEATURES + 2, 0);
-  yield* mCleanRow.opacity(1, 0.3);
+  yield* all(
+    baselineHdr().opacity(1, 0.3),
+    baselineVal().opacity(1, 0.3),
+  );
 
   yield* slide('atp:naive-baseline',
     `Second: run the model on the clean input ("boys"), and store all the SAE activations (a_clean) for each node.
@@ -596,16 +679,20 @@ export default makeScene2D(function* (view) {
       saeTxt[i]().fill(colors.bad, dur),
     );
     if (detailed) yield* waitFor(0.1);
-    // SAE → output sweep: only the patched feature's edges carry the modified signal (red).
-    // The other 11 features' edges still carry their clean activations.
-    yield* all(
-      ...edgesSO.map((e, idx) => {
-        const featureIdx = Math.floor(idx / 2);
-        const color = featureIdx === i ? colors.bad : colors.active;
-        return slideEdgeHighlight(view, e(), color, sweepDur);
-      }),
-    );
+    // SAE → output sweep: only edges to winning output. Patched feature edge=red,
+    // other features=active. Winner determined by newM sign.
     const newM = out_clean + IE_TRUE[i];
+    const winnerOffset = newM >= 0 ? 0 : 1;
+    yield* all(
+      ...edgesSO
+        .map((e, idx) => ({e, idx}))
+        .filter(({idx}) => idx % 2 === winnerOffset)
+        .map(({e, idx}) => {
+          const featureIdx = Math.floor(idx / 2);
+          const color = featureIdx === i ? colors.bad : colors.active;
+          return slideEdgeHighlight(view, e(), color, sweepDur);
+        }),
+    );
     yield* all(
       setMetric(newM, dur),
       ...(newM >= 0
@@ -632,7 +719,7 @@ export default makeScene2D(function* (view) {
 
   // Detailed: i=0,1,2
   for (let i = 0; i < 3; i++) {
-    passCounter().text(`Naive: ${i + 3} passes`);
+    yield* fwdC.handle.countTo(i + 3, 0.15);
     yield* intervene(i, i + 1, true);
     if (i === 0) {
       yield* slide('atp:naive-first', `
@@ -650,36 +737,10 @@ export default makeScene2D(function* (view) {
 
   // Time-lapse: i=3..11
   for (let i = 3; i < FEATURES; i++) {
-    passCounter().text(`Naive: ${i + 3} passes`);
+    yield* fwdC.handle.countTo(i + 3, 0.1);
     yield* intervene(i, i + 1, false);
   }
-  passCounter().text('Naive: 14 passes');
-
-  // ---- naive cost tally at bottom-right (below cached value tables) ----
-  const TALLY_Y = 410;
-  const NAIVE_X = NOTES_X + 40;
-  const naiveFwd = makeCounter(0, 0, ' fwd', {
-    x: NAIVE_X, y: TALLY_Y, offsetX: -1,
-    fontSize: 32, fontFamily: fonts.mono, fill: colors.bad, opacity: 0,
-  });
-  const naiveBwd = makeCounter(0, 0, ' bwd', {
-    x: NAIVE_X, y: TALLY_Y + 38, offsetX: -1,
-    fontSize: 32, fontFamily: fonts.mono, fill: colors.textMuted, opacity: 0,
-  });
-  view.add(
-    <>
-      {naiveFwd.node}
-      {naiveBwd.node}
-    </>,
-  );
-  yield* all(
-    naiveFwd.handle.ref().opacity(1, 0.4),
-    naiveBwd.handle.ref().opacity(1, 0.4),
-  );
-  yield* all(
-    naiveFwd.handle.countTo(14, 1.4),
-    naiveBwd.handle.countTo(0, 1.4),
-  );
+  yield* fwdC.handle.countTo(14, 0.15);
 
   yield* slide('atp:naive-done', `
     Now we have all IEs. We look at the significant ones. THose indicate the SAE nodes we seek.
@@ -708,9 +769,14 @@ export default makeScene2D(function* (view) {
     metricLbl().opacity(0, 0.3),
     metricVal().opacity(0, 0.3),
     notesBg().opacity(0, 0.3),
+    sectionTitle().opacity(0, 0.3),
     ...notesRows.map(r => r.opacity(0, 0.3)),
-    naiveFwd.handle.ref().opacity(0, 0.3),
-    naiveBwd.handle.ref().opacity(0, 0.3),
+    baselineHdr().opacity(0, 0.3),
+    baselineVal().opacity(0, 0.3),
+    algCostHdr().opacity(0, 0.3),
+    algCostSub().opacity(0, 0.3),
+    fwdC.handle.ref().opacity(0, 0.3),
+    bwdC.handle.ref().opacity(0, 0.3),
   );
 
   // New title for intuition beat
@@ -803,11 +869,21 @@ export default makeScene2D(function* (view) {
     metricLbl().opacity(1, 0.3),
     metricVal().opacity(1, 0.3),
     notesBg().opacity(0.6, 0.3),
-    naiveFwd.handle.ref().opacity(1, 0.3),
-    naiveBwd.handle.ref().opacity(1, 0.3),
+    sectionTitle().opacity(1, 0.3),
+    baselineHdr().opacity(1, 0.3),
+    baselineVal().opacity(1, 0.3),
+    algCostHdr().opacity(1, 0.3),
+    algCostSub().opacity(1, 0.3),
+    fwdC.handle.ref().opacity(1, 0.3),
+    bwdC.handle.ref().opacity(1, 0.3),
+    formula().opacity(1, 0.3),
   );
   notesRows.length = 0;
+  // reset counters and update sub-caption for ATP phase
   yield* all(
+    fwdC.handle.countTo(0, 0.3),
+    bwdC.handle.countTo(0, 0.3),
+    algCostSub().text('Constant, no matter how many SAE neurons', 0.3),
     metricVal().text('—', 0.2),
     metricVal().fill(colors.accent, 0.2),
   );
@@ -833,7 +909,7 @@ export default makeScene2D(function* (view) {
   `, 'Stanislas');
 
   // ---- Pass 1: forward on PATCH ----
-  passCounter().text('ATP: 1 pass');
+  yield* fwdC.handle.countTo(1, 0.2);
   yield* forward(PATCH, colors.bad, 'boy');
   // metric on patch (not strictly needed but show)
   yield* setMetric(-0.42, 0.3);
@@ -852,7 +928,7 @@ export default makeScene2D(function* (view) {
   `, 'Stanislas');
 
   // ---- Pass 2: forward on CLEAN ----
-  passCounter().text('ATP: 2 passes');
+  yield* fwdC.handle.countTo(2, 0.2);
   yield* forward(CLEAN, colors.active, 'boys');
   yield* setMetric(out_clean, 0.3);
 
@@ -869,7 +945,7 @@ export default makeScene2D(function* (view) {
   `, 'Stanislas');
 
   // ---- Pass 3: BACKWARD ----
-  passCounter().text('ATP: 3 passes');
+  yield* bwdC.handle.countTo(1, 0.2);
 
   // helper: sweep an edge in reverse (overlay travels target → source).
   // Default = green (gradient flow); distinct from cyan/red forward sweeps.
@@ -955,16 +1031,6 @@ export default makeScene2D(function* (view) {
   `, 'Stanislas');
 
   // ---- Combine: IE ≈ grad * (patch - clean) ----
-  const formula = createRef<Txt>();
-  view.add(
-    <Txt ref={formula}
-      x={NOTES_X + NOTES_W / 2} y={310}
-      fontSize={20} fontFamily={fonts.mono} fill={colors.sae}
-      opacity={0} text={'IE_atp[i] = ∇ₐm[i] · (a_poisoned[i] − a_clean[i])'}
-    />,
-  );
-  yield* formula().opacity(1, 0.4);
-
   const ieRows: Txt[] = [];
   for (let i = 0; i < FEATURES; i++) {
     const row = addNoteRow(`IE[${i.toString().padStart(2, '0')}] = ${fmt(IE_ATP[i])}`,
@@ -982,31 +1048,6 @@ export default makeScene2D(function* (view) {
 
     Notice how the same SAE nodes are highlighted, but the magnitudes are underestimated, due to the straight tangents.
   `, 'Stanislas');
-
-  // ---- ATP cost tally (right of naive tally, same row) ----
-  const ATP_X = NOTES_X + NOTES_W / 2 + 40;
-  const atpFwd = makeCounter(0, 0, ' fwd', {
-    x: ATP_X, y: TALLY_Y, offsetX: -1,
-    fontSize: 32, fontFamily: fonts.mono, fill: colors.sae, opacity: 0,
-  });
-  const atpBwd = makeCounter(0, 0, ' bwd', {
-    x: ATP_X, y: TALLY_Y + 38, offsetX: -1,
-    fontSize: 32, fontFamily: fonts.mono, fill: colors.sae, opacity: 0,
-  });
-  view.add(
-    <>
-      {atpFwd.node}
-      {atpBwd.node}
-    </>,
-  );
-  yield* all(
-    atpFwd.handle.ref().opacity(1, 0.4),
-    atpBwd.handle.ref().opacity(1, 0.4),
-  );
-  yield* all(
-    atpFwd.handle.countTo(2, 1.4),
-    atpBwd.handle.countTo(1, 1.4),
-  );
 
   yield* slide('atp:summary', `
     ATP: 2 forward + 1 backward. Constant cost, regardless of node count.

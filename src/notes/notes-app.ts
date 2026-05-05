@@ -14,6 +14,7 @@ const $nextOwner = document.getElementById('next-owner')!;
 
 let startTime: number | null = null;
 let slideIds: string[] = [];
+let lastShown: {notes?: string; owner?: string} | undefined;
 
 function fmt(ms: number) {
   const s = Math.floor(ms / 1000);
@@ -47,7 +48,7 @@ function render(info: {
   const nxtMeta = nxt ? notes[nxt] : undefined;
 
   $curId.textContent = cur ?? '—';
-  let displayMeta = curMeta;
+  let displayMeta: {notes?: string; owner?: string} | undefined = curMeta;
   if (!displayMeta?.notes?.trim() && cur) {
     const idx = slideIds.indexOf(cur);
     for (let i = idx - 1; i >= 0; i--) {
@@ -58,6 +59,10 @@ function render(info: {
       }
     }
   }
+  if (!displayMeta?.notes?.trim() && lastShown?.notes?.trim()) {
+    displayMeta = lastShown;
+  }
+  if (displayMeta?.notes?.trim()) lastShown = displayMeta;
   $curNotes.textContent = displayMeta?.notes?.trim() || '(no notes)';
   $curOwner.textContent = displayMeta?.owner ?? '';
   $nextId.textContent = nxt ?? '—';

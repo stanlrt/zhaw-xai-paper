@@ -4,6 +4,7 @@ const channel = new BroadcastChannel('mc-slides');
 const STORAGE_KEY = 'mc-presenter-slide';
 const FS_KEY = 'mc-presenter-fullscreen';
 let lastInfo: any = null;
+let lastSlideIds: string[] = [];
 
 function attach(instance: any) {
   if (instance.__mcBridged) return;
@@ -21,6 +22,7 @@ function attach(instance: any) {
 
   instance.onSlidesChanged.subscribe((slides: any[]) => {
     const ids = slides.map(s => s.id ?? s.name ?? String(s));
+    lastSlideIds = ids;
     channel.postMessage({type: 'slides', ids});
 
     if (!restoredOnce && ids.length > 0) {
@@ -122,6 +124,9 @@ if (typeof window !== 'undefined' && !(window as any).__mcBridgeFsInit) {
 
 channel.addEventListener('message', e => {
   if (e.data?.type === 'sync') {
+    if (lastSlideIds.length) {
+      channel.postMessage({type: 'slides', ids: lastSlideIds});
+    }
     if (lastInfo) {
       channel.postMessage({
         type: 'info',

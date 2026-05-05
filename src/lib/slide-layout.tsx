@@ -1,6 +1,6 @@
-import {Txt, View2D} from '@motion-canvas/2d';
-import {createRef, ThreadGenerator, Reference} from '@motion-canvas/core';
-import {colors, fonts, sizes} from './theme';
+import { Txt, View2D } from '@motion-canvas/2d';
+import { createRef, Reference, ThreadGenerator } from '@motion-canvas/core';
+import { colors, fonts, sizes } from './theme';
 
 export interface SlideLayoutOpts {
   title: string;
@@ -19,9 +19,10 @@ export function setupSlide(view: View2D, opts: SlideLayoutOpts): SlideLayoutHand
   view.add(
     <Txt
       ref={title}
-      y={opts.titleY ?? -420}
+      y={opts.titleY ?? -440}
       fontSize={sizes.titleSize}
       fontFamily={fonts.sans}
+      fontWeight={900}
       fill={opts.titleColor ?? colors.text}
       opacity={0}
       text={opts.title}
@@ -32,5 +33,5 @@ export function setupSlide(view: View2D, opts: SlideLayoutOpts): SlideLayoutHand
     yield* title().opacity(1, dur);
   }
 
-  return {title, showTitle};
+  return { title, showTitle };
 }

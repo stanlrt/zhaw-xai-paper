@@ -105,33 +105,16 @@ export default makeScene2D(function* (view) {
   // === Network ===
   // =========================================================
 
-  // ---- frames (drawn first, behind everything) ----
-  const ogFrame  = createRef<Rect>();
+  // ---- section labels (no frames) ----
   const ogLbl    = createRef<Txt>();
-  const saeFrame = createRef<Rect>();
   const saeLbl   = createRef<Txt>();
 
   view.add(
     <>
-      {/* Original-network frame: spans input → hidden → output */}
-      <Rect ref={ogFrame}
-        x={(INPUT_X + OUTPUT_X) / 2} y={NET_Y}
-        width={(OUTPUT_X - INPUT_X) + 200} height={500}
-        fill={'#0a0f18'} stroke={colors.edge} lineWidth={1.5} radius={14}
-        opacity={0}
-      />
       <Txt ref={ogLbl}
         x={(INPUT_X + OUTPUT_X) / 2} y={NET_Y - 270}
         fontSize={18} fontFamily={fonts.mono} fill={colors.textMuted}
         text={'Original network (LM body + linear head)'} opacity={0}
-      />
-
-      {/* SAE frame: spans the SAE column */}
-      <Rect ref={saeFrame}
-        x={SAE_X} y={NET_Y}
-        width={130} height={SAE_GAP * FEATURES + 40}
-        fill={'#1a1407'} stroke={colors.sae} lineWidth={2} radius={14}
-        opacity={0}
       />
       <Txt ref={saeLbl}
         x={SAE_X} y={NET_Y - 380}
@@ -298,9 +281,7 @@ export default makeScene2D(function* (view) {
   layout.title().text('SHIFT: setup — classifier built on top of LM');
   yield* all(
     layout.title().opacity(1, 0.3),
-    ogFrame().opacity(1, 0.4),
     ogLbl().opacity(1, 0.4),
-    saeFrame().opacity(1, 0.4),
     saeLbl().opacity(1, 0.4),
     ...inputN.map(r => r().opacity(1, 0.4)),
     ...hidN.map(r => r().opacity(1, 0.4)),
@@ -686,8 +667,8 @@ export default makeScene2D(function* (view) {
     ...hidN.map(r => r().opacity(0.2, 0.3)),
     ...saeN.map(r => r().opacity(0.2, 0.3)),
     ...saeTxt.map(r => r().opacity(0, 0.3)),
-    ogFrame().opacity(0.2, 0.3), ogLbl().opacity(0.2, 0.3),
-    saeFrame().opacity(0.2, 0.3), saeLbl().opacity(0.2, 0.3),
+    ogLbl().opacity(0.2, 0.3),
+    saeLbl().opacity(0.2, 0.3),
     outProf().opacity(0.2, 0.3), outProfTx().opacity(0.2, 0.3),
     outNurse().opacity(0.2, 0.3), outNurseTx().opacity(0.2, 0.3),
     metricBox().opacity(0.2, 0.3), metricLbl().opacity(0.2, 0.3), metricVal().opacity(0.2, 0.3),

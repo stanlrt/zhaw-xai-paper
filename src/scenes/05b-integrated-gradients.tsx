@@ -323,24 +323,18 @@ export default makeScene2D(function* (view) {
       <Txt ref={summary1}
         x={0} y={400}
         fontSize={22} fontFamily={fonts.mono} fill={colors.text} opacity={0}
-        text={'ATP: 2 fwd + 1 bwd'}
+        text={'Algorithmic cost'}
       />
       <Txt ref={summary2}
         x={0} y={440}
         fontSize={22} fontFamily={fonts.mono} fill={colors.text} opacity={0}
-        text={'IG: 10 fwd + 10 bwd for accuracy degree 10  '}
-      />
-      <Txt ref={summary3}
-        x={0} y={480}
-        fontSize={22} fontFamily={fonts.mono} fill={colors.text} opacity={0}
-        text={'Naive: O(nodes) fwd  '}
+        text={'For N accuracy samples, N fwd + N bwd '}
       />
     </>,
   );
   yield* all(
     summary1().opacity(1, 0.4),
     summary2().opacity(1, 0.4),
-    summary3().opacity(1, 0.4),
   );
 
   yield* slide('ig:cost', `

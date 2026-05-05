@@ -199,23 +199,23 @@ export default makeScene2D(function* (view) {
     }
     yield* all(...sentenceRow().children().map(c => (c as Txt).opacity(1, 0.25)));
 
-    yield* net.fireTransition(0, t.inputPattern, t.hidden1Pattern);
-    yield* net.fireTransition(1, t.hidden1Pattern, t.hidden2Pattern);
+    yield* net.fireTransition(0, t.inputPattern, t.hidden1Pattern, 0.28);
+    yield* net.fireTransition(1, t.hidden1Pattern, t.hidden2Pattern, 0.28);
     yield* all(
-      net.fireTransition(2, t.hidden2Pattern, [t.predictedTokenIdx]),
+      net.fireTransition(2, t.hidden2Pattern, [t.predictedTokenIdx], 0.28),
       chain(
-        vocabLabels[t.predictedTokenIdx]().fill(colors.active, 0.2),
-        vocabLabels[t.predictedTokenIdx]().fill(colors.textMuted, 0.4),
+        vocabLabels[t.predictedTokenIdx]().fill(colors.active, 0.15),
+        vocabLabels[t.predictedTokenIdx]().fill(colors.textMuted, 0.3),
       ),
       chain(
-        vocabBoxes[t.predictedTokenIdx]().stroke(colors.active, 0.2),
-        vocabBoxes[t.predictedTokenIdx]().stroke(colors.edge, 0.4),
+        vocabBoxes[t.predictedTokenIdx]().stroke(colors.active, 0.15),
+        vocabBoxes[t.predictedTokenIdx]().stroke(colors.edge, 0.3),
       ),
     );
 
-    yield* waitFor(0.6);
+    yield* waitFor(0.3);
 
-    yield* all(...sentenceRow().children().map(c => (c as Txt).opacity(0, 0.25)));
+    yield* all(...sentenceRow().children().map(c => (c as Txt).opacity(0, 0.2)));
   }
 
   yield* slide('poly:trials-done', `
@@ -334,7 +334,7 @@ export default makeScene2D(function* (view) {
         text={'sparse features'}
         opacity={0}
       />
-      <Txt
+      {/* <Txt
         ref={vecLabel}
         x={hidden1X}
         y={NET_Y + 2 * NEURON_GAP + 110}
@@ -343,7 +343,7 @@ export default makeScene2D(function* (view) {
         fill={colors.textMuted}
         text={'hidden vec'}
         opacity={0}
-      />
+      /> */}
       <Layout
         ref={featureCol}
         x={0}
@@ -355,7 +355,7 @@ export default makeScene2D(function* (view) {
   yield* all(
     saeLabel().opacity(1, 0.4),
     sparseSubLabel().opacity(1, 0.4),
-    vecLabel().opacity(1, 0.4),
+    // vecLabel().opacity(1, 0.4),
     ...sparseCircles.map(c => c().opacity(1, 0.4)),
     ...encodeLines.map(l => l().end(1, 0.5)),
   );
