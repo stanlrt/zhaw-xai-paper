@@ -49,6 +49,7 @@ export function* slideEdgeHighlight(
       start={0}
       end={0}
       lineCap={'round'}
+      zIndex={1}
     />,
   );
   yield* overlay().end(1, dur * 0.55);
@@ -90,7 +91,7 @@ export function buildNetwork(view: View2D, opts: NetworkOptions): Network {
     for (let n = 0; n < count; n++) {
       const y = origin.y + (n - (count - 1) / 2) * neuronGap;
       const ref = createRef<Circle>();
-      view.add(<Neuron ref={ref} x={x} y={y} scale={0} />);
+      view.add(<Neuron ref={ref} x={x} y={y} scale={0} zIndex={2} />);
       layer.push(ref());
     }
     neurons.push(layer);
@@ -108,6 +109,7 @@ export function buildNetwork(view: View2D, opts: NetworkOptions): Network {
             stroke={colors.edge}
             lineWidth={sizes.edgeWidth}
             end={0}
+            zIndex={1}
           />,
         );
         layerLines.push(ref());

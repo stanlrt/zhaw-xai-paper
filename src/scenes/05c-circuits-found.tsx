@@ -1,5 +1,5 @@
-import { Layout, Line, makeScene2D, Rect, Txt } from '@motion-canvas/2d';
-import { all, chain, createRef, sequence, waitFor } from '@motion-canvas/core';
+import { Line, makeScene2D, Rect, Txt } from '@motion-canvas/2d';
+import { all, createRef, sequence, waitFor } from '@motion-canvas/core';
 import { addBackground } from '../lib/bg';
 import { slide } from '../lib/slide';
 import { setupSlide } from '../lib/slide-layout';
@@ -22,19 +22,19 @@ const FEATURES: FeatureGroup[] = [
     name: 'NP number tracker (plural)',
     desc: 'fires on every position inside the plural subject phrase, ignores singular distractors',
     //     the    boys   near   the    teacher ___
-    fires: [true,  true,  false, false, false,  true],
+    fires: [true, true, false, false, false, true],
     color: colors.sae,
   },
   {
     name: 'PP/RC boundary detector',
     desc: 'fires at the start of the modifier — tells the model "distractor coming, ignore its number"',
-    fires: [false, false, true,  false, false,  false],
+    fires: [false, false, true, false, false, false],
     color: colors.active,
   },
   {
     name: 'Verb-form discriminator (plural)',
     desc: 'fires at the verb position; promotes the matching plural inflection at the output',
-    fires: [false, false, false, false, false,  true],
+    fires: [false, false, false, false, false, true],
     color: colors.bad,
   },
 ];
@@ -175,7 +175,7 @@ export default makeScene2D(function* (view) {
     <Txt ref={callback}
       x={0} y={FLOW_Y + STEP_H / 2 + 50}
       fontSize={26} fontFamily={fonts.sans} fill={colors.text}
-      text={'Stochastic parrot? No — a real, structured algorithm.'}
+      text={'LLMs are not basic next-token predictors, they encode structured algorithms.'}
       opacity={0}
     />,
   );

@@ -43,6 +43,7 @@ const TRIALS: LMTrial[] = [
     features: [
       { idx: 2, name: 'verb of opening (past tense)' },
       { idx: 6, name: '3rd-person sing. pronoun' },
+      { idx: 8, name: 'determiner before noun' },
     ],
   },
   {
@@ -212,14 +213,19 @@ export default makeScene2D(function* (view) {
       ),
     );
 
-    yield* slide(`poly:trial-${i}`, `
-       Do you observe anything interesting?
-    Polysemantic: same neurons encapsulate different meanings. In real LLM: can be thousands.
-    So how can you interpret each neuron?
-    `, 'Stanislas');
+    yield* waitFor(0.6);
 
     yield* all(...sentenceRow().children().map(c => (c as Txt).opacity(0, 0.25)));
   }
+
+  yield* slide('poly:trials-done', `
+     Do you observe anything interesting?
+  Polysemantic: same neurons encapsulate different meanings. In real LLM: can be thousands.
+  So how can you interpret each neuron?
+  `, 'Stanislas');
+
+  // No prompts in next phases until pool whip-through
+  yield* promptLabel().opacity(0, 0.3);
 
   // ============================================================
   // PART 2: attach SAE to layer 1 — same network, no scene reset
@@ -272,6 +278,7 @@ export default makeScene2D(function* (view) {
         stroke={colors.sae}
         lineWidth={2}
         opacity={0}
+        zIndex={2}
       />,
     );
   }
@@ -294,6 +301,7 @@ export default makeScene2D(function* (view) {
           lineWidth={1.5}
           end={0}
           opacity={0.4}
+          zIndex={1}
         />,
       );
     }
@@ -352,21 +360,62 @@ export default makeScene2D(function* (view) {
     ...encodeLines.map(l => l().end(1, 0.5)),
   );
 
-  yield* slide('sae:attach', `
-      It has a single hidden layer, but many more neurons. This means each neuron has to carry a lot less meaning, ideally a single one.
-      
-      We also enforce a sparsity constraint.
-      This means that for any given input, only a few SAE neurons will be active.
+  // ---- Place "???" labels next to every SAE circle ----
+  featureCol().removeChildren();
+  const labelRefs: ReturnType<typeof createRef<Txt>>[] = [];
+  for (let k = 0; k < SPARSE_DIMS; k++) {
+    const r = createRef<Txt>();
+    labelRefs.push(r);
+    const yPos = SPARSE_TOP_Y + k * SPARSE_GAP;
+    featureCol().add(
+      <Txt
+        ref={r}
+        text={'???'}
+        x={SPARSE_X + 40}
+        y={yPos}
+        offsetX={-1}
+        fontSize={20}
+        fontFamily={fonts.mono}
+        fill={colors.textMuted}
+        opacity={0}
+      />,
+    );
+  }
+  yield* all(...labelRefs.map(r => r().opacity(1, 0.4)));
 
-      Suddenly, it becomes a lot easier to interpret.
+  yield* slide('sae:attach', `
+      It has a single hidden layer, but many more neurons — each carries far less meaning.
+      Sparsity constraint: only a few fire per input.
+      But what does each one mean? Initially: unknown — "???".
+      We need to look at thousands of inputs and see what makes each one fire.
   `, 'Stanislas');
 
-  // ---- SAE trials: same prompts, now show sparse feature ----
-  for (let i = 0; i < TRIALS.length; i++) {
-    const t = TRIALS[i];
+  // ---- Phase A: many prompts whip through ----
+  yield* promptLabel().opacity(1, 0.3);
+  interface Probe { sentence: string[]; input: number[]; h1: number[]; features: number[] }
+  const POOL: Probe[] = [
+    { sentence: ['the', 'cat', 'sat', 'on', 'the'], input: [0, 2], h1: [1, 2, 4], features: [1, 8] },
+    { sentence: ['she', 'opened', 'the'], input: [1, 2], h1: [1, 2, 3], features: [2, 8] },
+    { sentence: ['I', 'drank', 'a', 'cup', 'of'], input: [0, 1], h1: [0, 1, 2, 4], features: [3, 7, 10] },
+    { sentence: ['a', 'tiger', 'roams'], input: [0, 2], h1: [0, 2], features: [1, 5] },
+    { sentence: ['he', 'unlocked', 'the'], input: [1, 2], h1: [1, 2, 3], features: [2, 8] },
+    { sentence: ['my', 'lion', 'awakens'], input: [0, 1], h1: [0, 1, 2], features: [1, 9] },
+    { sentence: ['fill', 'the', 'glass'], input: [1, 2], h1: [2, 4], features: [3, 8] },
+    { sentence: ['Kate', 'opened', 'a'], input: [0, 2], h1: [0, 2, 3], features: [2, 8] },
+    { sentence: ['leopard', 'in', 'the'], input: [0, 1], h1: [0, 1, 4], features: [1, 8] },
+    { sentence: ['pour', 'into', 'the', 'mug'], input: [0, 2], h1: [0, 2, 4], features: [3, 7] },
+    { sentence: ['she', 'closed', 'the'], input: [1, 2], h1: [1, 2, 3], features: [2, 8, 11] },
+    { sentence: ['kitten', 'next', 'to'], input: [1, 2], h1: [1, 3], features: [1, 7] },
+    { sentence: ['empty', 'the', 'bowl'], input: [0, 1], h1: [2, 4], features: [3, 8] },
+    { sentence: ['a', 'jaguar', 'leaps'], input: [0, 1], h1: [0, 1], features: [1, 5] },
+    { sentence: ['fill', 'a', 'jug'], input: [1, 2], h1: [2, 4], features: [3, 0] },
+  ];
+
+  for (let i = 0; i < POOL.length; i++) {
+    const p = POOL[i];
 
     sentenceRow().removeChildren();
-    for (const tok of t.sentence) {
+    for (const tok of p.sentence) {
       sentenceRow().add(
         <Txt
           text={tok}
@@ -377,70 +426,146 @@ export default makeScene2D(function* (view) {
         />,
       );
     }
-    yield* all(...sentenceRow().children().map(c => (c as Txt).opacity(1, 0.25)));
+    yield* all(...sentenceRow().children().map(c => (c as Txt).opacity(1, 0.1)));
 
-    // Forward through input → hidden1 (same as polysemy phase)
-    yield* net.fireTransition(0, t.inputPattern, t.hidden1Pattern);
+    yield* net.fireTransition(0, p.input, p.h1, 0.18);
 
-    // Encode: slide highlight on edges from each active hidden1 neuron to EACH lit sparse feature
-    const edgeHighlights = [];
-    for (const a of t.hidden1Pattern) {
-      for (const f of t.features) {
-        edgeHighlights.push(
-          slideEdgeHighlight(view, encodeLines[a * SPARSE_DIMS + f.idx](), colors.sae, 0.55),
-        );
-      }
-    }
-    yield* all(...edgeHighlights);
-
-    // Light all lit sparse features simultaneously
+    // hidden1 → SAE: highlight active encode edges
     yield* all(
-      ...t.features.map(f =>
-        all(
-          sparseCircles[f.idx]().fill(colors.sae, 0.3),
-          sparseCircles[f.idx]().lineWidth(4, 0.3),
+      ...p.h1.flatMap(a =>
+        p.features.map(f =>
+          slideEdgeHighlight(view, encodeLines[a * SPARSE_DIMS + f](), colors.sae, 0.22),
         ),
       ),
     );
 
-    // Feature names: each aligned vertically to its sparse circle
-    featureCol().removeChildren();
-    const featureTxtRefs = t.features.map(() => createRef<Txt>());
-    t.features.forEach((f, k) => {
-      const yPos = SPARSE_TOP_Y + f.idx * SPARSE_GAP;
-      featureCol().add(
+    yield* all(
+      ...p.features.map(f =>
+        all(
+          sparseCircles[f]().fill(colors.sae, 0.12),
+          sparseCircles[f]().lineWidth(4, 0.12),
+        ),
+      ),
+    );
+    yield* waitFor(0.08);
+    yield* all(
+      ...p.features.map(f =>
+        all(
+          sparseCircles[f]().fill(colors.neuronFill, 0.18),
+          sparseCircles[f]().lineWidth(2, 0.18),
+        ),
+      ),
+      ...sentenceRow().children().map(c => (c as Txt).opacity(0, 0.12)),
+    );
+  }
+
+  // No more prompts → hide prompt: label
+  yield* promptLabel().opacity(0, 0.3);
+
+  yield* slide('sae:harvested', `
+    After thousands of prompts: we have, for each SAE neuron, a list of inputs that made it fire.
+    Now humans or LLMs inspect those top activations and write a label.
+  `, 'Stanislas');
+
+  // ---- Phase B: reveal labels for a few features ----
+  const REVEALS: { idx: number; label: string; topPrompts: number[] }[] = [
+    { idx: 1, label: 'feline-animal token', topPrompts: [0, 3, 5, 13] },
+    { idx: 2, label: 'verb of opening (past tense)', topPrompts: [1, 4, 7] },
+    { idx: 3, label: 'container noun', topPrompts: [2, 6, 12] },
+    { idx: 8, label: 'determiner before noun', topPrompts: [0, 6, 8, 12] },
+  ];
+
+  // Evidence panel (left of SAE column, where sentence row used to be)
+  const evidenceCol = createRef<Layout>();
+  view.add(
+    <Layout
+      ref={evidenceCol}
+      layout
+      direction={'column'}
+      gap={6}
+      alignItems={'end'}
+      x={SENTENCE_RIGHT}
+      y={NET_Y}
+      offsetX={1}
+      offsetY={0}
+    />,
+  );
+
+  for (const rev of REVEALS) {
+    // Highlight target circle, dim others
+    yield* all(
+      ...sparseCircles.map((c, k) =>
+        k === rev.idx
+          ? all(c().fill(colors.sae, 0.3), c().lineWidth(5, 0.3))
+          : c().opacity(0.25, 0.3),
+      ),
+      ...labelRefs.map((r, k) => k === rev.idx ? r().opacity(1, 0.3) : r().opacity(0.2, 0.3)),
+    );
+
+    // Build evidence list: top prompts that activated this feature
+    evidenceCol().removeChildren();
+    const headerRef = createRef<Txt>();
+    evidenceCol().add(
+      <Txt
+        ref={headerRef}
+        text={'top activations:'}
+        fontSize={20}
+        fontFamily={fonts.mono}
+        fill={colors.textMuted}
+        opacity={0}
+      />,
+    );
+    const promptRefs: ReturnType<typeof createRef<Txt>>[] = [];
+    for (const pi of rev.topPrompts) {
+      const r = createRef<Txt>();
+      promptRefs.push(r);
+      evidenceCol().add(
         <Txt
-          ref={featureTxtRefs[k]}
-          text={f.name}
-          x={SPARSE_X + 40}
-          y={yPos}
-          offsetX={-1}
+          ref={r}
+          text={`"${POOL[pi].sentence.join(' ')}"`}
           fontSize={22}
           fontFamily={fonts.mono}
-          fill={colors.sae}
+          fill={colors.active}
           opacity={0}
         />,
       );
-    });
-    yield* chain(...featureTxtRefs.map(r => r().opacity(1, 0.18)));
+    }
+    yield* chain(
+      headerRef().opacity(1, 0.2),
+      ...promptRefs.map(r => r().opacity(1, 0.18)),
+    );
 
-    yield* slide(`sae:trial-${i}`, `
-      "${t.sentence.join(' ')}" → polysemantic hidden vec → SAE encodes → ${t.features.length} sparse features fire.
-      Sparsity = MOST slots stay zero. The few that fire are each cleanly named.
-      ~15s.
+    yield* waitFor(0.4);
+
+    // Morph "???" → real label
+    labelRefs[rev.idx]().text(rev.label);
+    yield* labelRefs[rev.idx]().fill(colors.sae, 0.4);
+
+    yield* slide(`sae:reveal-${rev.idx}`, `
+      Feature ${rev.idx}: fires on these → label it "${rev.label}".
     `, 'Stanislas');
 
+    // Clear evidence
     yield* all(
-      ...sentenceRow().children().map(c => (c as Txt).opacity(0, 0.25)),
-      ...featureTxtRefs.map(r => r().opacity(0, 0.25)),
-      ...t.features.map(f =>
-        all(
-          sparseCircles[f.idx]().fill(colors.neuronFill, 0.3),
-          sparseCircles[f.idx]().lineWidth(2, 0.3),
-        ),
-      ),
+      headerRef().opacity(0, 0.25),
+      ...promptRefs.map(r => r().opacity(0, 0.25)),
     );
   }
+
+  // Restore all circles + remaining "???" labels
+  yield* all(
+    ...sparseCircles.map(c => all(
+      c().opacity(1, 0.3),
+      c().fill(colors.neuronFill, 0.3),
+      c().lineWidth(2, 0.3),
+    )),
+    ...labelRefs.map(r => r().opacity(1, 0.3)),
+  );
+
+  yield* slide('sae:done', `
+    Some features get clean labels. Many stay "???" — superposition leftovers, dead neurons, fuzzy concepts.
+    But the labeled ones are now interpretable handles into the model.
+  `, 'Stanislas');
 
   yield* waitFor(0.2);
 });

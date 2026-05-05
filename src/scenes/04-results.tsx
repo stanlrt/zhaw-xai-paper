@@ -17,7 +17,7 @@ export default makeScene2D(function* (view) {
       fontFamily={fonts.sans}
       fill={colors.text}
       opacity={0}
-      text={'Neurons interpreted correctly'}
+      text={'Human interpretability rating (0–100)'}
     />,
   );
 
@@ -53,7 +53,7 @@ export default makeScene2D(function* (view) {
         fontFamily={fonts.sans}
         fill={colors.textMuted}
         opacity={0}
-        text={'Raw network'}
+        text={'Raw neurons (BiB top-30)'}
       />
       <Txt
         ref={labelRight}
@@ -63,28 +63,26 @@ export default makeScene2D(function* (view) {
         fontFamily={fonts.sans}
         fill={colors.textMuted}
         opacity={0}
-        text={'SAE network'}
+        text={'SAE features (BiB top-30)'}
       />
     </>,
   );
 
   yield* title().opacity(1, 0.5);
   yield* slide('results:title', `
-    To verify if actually more interpretable: authors ran corwd-sourced evaluations.
-    They asked human crowdworkers to give their interpretation of neurons by looking at inputs and activations, like we did.
+    This is backed up by evaluation use cases performed for the paper.
+
+    Human crowdworkers (ARENA Slack ML researchers) give the SAE and input/output prompts like we saw in previous slide.
+    Then they write a interpretation label and rate interpretability 0-100.
   `, 'Stanislas');
 
   yield* all(left.handle.ref().opacity(1, 0.3), labelLeft().opacity(1, 0.3));
-  yield* left.handle.countTo(52.8, 1.4);
-  yield* slide('results:raw', `
-    Raw network: 52.8% — barely above coin flip. Basically guessing.
-  `, 'Stanislas');
+  yield* left.handle.countTo(36.0, 1.4);
+  yield* slide('results:raw');
 
   yield* all(right.handle.ref().opacity(1, 0.3), labelRight().opacity(1, 0.3));
   yield* right.handle.countTo(81.5, 1.4);
-  yield* slide('results:sae', `
-    SAE: 81.5%. Big jump in interpretability. Sparse features = real concepts.
-  `, 'Stanislas');
+  yield* slide('results:sae');
 
   yield* waitFor(0.2);
 });

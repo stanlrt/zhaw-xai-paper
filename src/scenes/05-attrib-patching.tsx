@@ -21,7 +21,7 @@ const GRAD = CLEAN.map((c, i) => {
 });
 const IE_ATP = GRAD.map((g, i) => g * (PATCH[i] - CLEAN[i]));
 
-const M_CLEAN = 0.31;  // metric on clean run
+const out_clean = 0.31;  // metric on clean run
 
 // ---------- layout constants ----------
 const INPUT_X = -780;
@@ -89,6 +89,7 @@ export default makeScene2D(function* (view) {
         size={NEURON_R * 2}
         fill={colors.neuronFill} stroke={colors.neuronStroke} lineWidth={2}
         opacity={0}
+        zIndex={10}
       />,
     );
   }
@@ -104,6 +105,7 @@ export default makeScene2D(function* (view) {
         size={NEURON_R * 2}
         fill={colors.neuronFill} stroke={colors.neuronStroke} lineWidth={2}
         opacity={0}
+        zIndex={10}
       />,
     );
   }
@@ -200,10 +202,10 @@ export default makeScene2D(function* (view) {
   const I_MFN = (a: number) => 0.4 - 0.6 * a * a - 0.2 * a;
   const I_GFN = (a: number) => -1.2 * a - 0.2;
   const I_A_CLEAN = 0, I_A_PATCH = 1;
-  const I_M_CLEAN = I_MFN(I_A_CLEAN);   // +0.40
+  const I_out_clean = I_MFN(I_A_CLEAN);   // +0.40
   const I_M_PATCH = I_MFN(I_A_PATCH);   // -0.40
   const I_ATP_IE = I_GFN(I_A_CLEAN) * (I_A_PATCH - I_A_CLEAN);  // -0.20
-  const I_TRUE_IE = I_M_PATCH - I_M_CLEAN;                       // -0.80
+  const I_TRUE_IE = I_M_PATCH - I_out_clean;                       // -0.80
   const I_M_MIN = -0.6, I_M_MAX = 0.6;
   const I_AX0 = -500, I_AX1 = 500;
   const I_AY0 = -260, I_AY1 = 260;
@@ -262,7 +264,7 @@ export default makeScene2D(function* (view) {
   view.add(
     <>
       <Circle ref={iCleanDot}
-        x={iax(I_A_CLEAN)} y={iay(I_M_CLEAN)} size={11}
+        x={iax(I_A_CLEAN)} y={iay(I_out_clean)} size={11}
         fill={colors.active} stroke={colors.active} lineWidth={1.5} opacity={0}
       />
       <Circle ref={iPatchDot}
@@ -270,9 +272,9 @@ export default makeScene2D(function* (view) {
         fill={colors.bad} stroke={colors.bad} lineWidth={1.5} opacity={0}
       />
       <Txt ref={iCleanLbl}
-        x={iax(I_A_CLEAN) + 14} y={iay(I_M_CLEAN) - 22} offsetX={-1}
+        x={iax(I_A_CLEAN) + 14} y={iay(I_out_clean) - 22} offsetX={-1}
         fontSize={18} fontFamily={fonts.mono} fill={colors.active}
-        text={'(a_clean, m_clean)'} opacity={0}
+        text={'(a_clean, out_clean)'} opacity={0}
       />
       <Txt ref={iPatchLbl}
         x={iax(I_A_PATCH) - 14} y={iay(I_M_PATCH) + 30} offsetX={1}
@@ -287,14 +289,14 @@ export default makeScene2D(function* (view) {
   const iAtpLbl = createRef<Txt>();
   const iErrLine = createRef<Line>();
   const iErrLbl = createRef<Txt>();
-  const iAtpProjY = iay(I_M_CLEAN + I_ATP_IE);
+  const iAtpProjY = iay(I_out_clean + I_ATP_IE);
   const iTangEndA = 1.05;
-  const iTangEndM = I_M_CLEAN + I_GFN(I_A_CLEAN) * (iTangEndA - I_A_CLEAN);
+  const iTangEndM = I_out_clean + I_GFN(I_A_CLEAN) * (iTangEndA - I_A_CLEAN);
   view.add(
     <>
       <Line ref={iTangent}
         points={[
-          [iax(I_A_CLEAN), iay(I_M_CLEAN)],
+          [iax(I_A_CLEAN), iay(I_out_clean)],
           [iax(iTangEndA), iay(iTangEndM)],
         ]}
         stroke={colors.active} lineWidth={2.5} lineDash={[8, 6]}
@@ -307,7 +309,7 @@ export default makeScene2D(function* (view) {
       <Txt ref={iAtpLbl}
         x={iax(I_A_PATCH) - 14} y={I_AY0 + 30} offsetX={1}
         fontSize={18} fontFamily={fonts.mono} fill={colors.active}
-        text={`ATP estimate: m ≈ ${fmt(I_M_CLEAN + I_ATP_IE)}`} opacity={0}
+        text={`ATP estimate: m ≈ ${fmt(I_out_clean + I_ATP_IE)}`} opacity={0}
       />
       <Line ref={iErrLine}
         points={[
@@ -333,14 +335,14 @@ export default makeScene2D(function* (view) {
   view.add(
     <>
       <Rect ref={metricBox}
-        x={METRIC_X} y={NET_Y} width={250} height={76}
+        x={METRIC_X} y={NET_Y} width={260} height={76}
         fill={'#0b1220'} stroke={colors.accent} lineWidth={2} radius={10}
         opacity={0}
       />
       <Txt ref={metricLbl}
         x={METRIC_X} y={NET_Y - 18}
         fontSize={15} fontFamily={fonts.mono} fill={colors.textMuted}
-        opacity={0} text={'m = logit(are) − logit(is)'}
+        opacity={0} text={'out = logit(are) - logit(is)'}
       />
       <Txt ref={metricVal}
         x={METRIC_X} y={NET_Y + 12}
@@ -425,11 +427,11 @@ export default makeScene2D(function* (view) {
 
   yield* slide('atp:setup', `
     We introduce a few notations here:
-    - m is the metric that measures the model's output (neg for "is", pos for "are")
-    - m_clean is the model's output metric for the clean input, our baseline
+    - out is the model's output value, negative for "is" & positive for "are"
+    - out_clean is the model's output when given the clean input. Called the baseline.
     - a_poisoned is the SAE node activation when the input is poisoned
     - a_clean is the SAE node activation when the input is clean
-    - IE is the Indirect Effect, i.e. how much one node causes metric m to change between clean and poisoned.
+    - IE is the Indirect Effect, i.e. how much one node causes metric m to change between clean baseline and poisoned.
     
     First we look at the naive, slow and costly approach.
   `, 'Stanislas');
@@ -532,7 +534,7 @@ export default makeScene2D(function* (view) {
 
   // Run 2: forward on CLEAN — establish baseline metric, cache a_clean values
   yield* forward(CLEAN, colors.active, 'boys');
-  yield* setMetric(M_CLEAN, 0.3);
+  yield* setMetric(out_clean, 0.3);
   passCounter().text('Naive: 2 passes');
 
   const cleanRowsNaive: Txt[] = [];
@@ -545,8 +547,8 @@ export default makeScene2D(function* (view) {
   }
   yield* sequence(0.03, ...cleanRowsNaive.map(r => r.opacity(1, 0.2)));
 
-  // m_clean badge below cache
-  const mCleanRow = addNoteRow('m_clean = +0.31', colors.accent, FEATURES + 2, 0);
+  // out_clean badge below cache
+  const mCleanRow = addNoteRow('out_clean = +0.31', colors.accent, FEATURES + 2, 0);
   yield* mCleanRow.opacity(1, 0.3);
 
   yield* slide('atp:naive-baseline',
@@ -603,7 +605,7 @@ export default makeScene2D(function* (view) {
         return slideEdgeHighlight(view, e(), color, sweepDur);
       }),
     );
-    const newM = M_CLEAN + IE_TRUE[i];
+    const newM = out_clean + IE_TRUE[i];
     yield* all(
       setMetric(newM, dur),
       ...(newM >= 0
@@ -625,7 +627,7 @@ export default makeScene2D(function* (view) {
       saeTxt[i]().text(CLEAN[i].toFixed(2), dur),
       saeTxt[i]().fill(colors.text, dur),
     );
-    yield* setMetric(M_CLEAN, dur);
+    yield* setMetric(out_clean, dur);
   }
 
   // Detailed: i=0,1,2
@@ -637,7 +639,7 @@ export default makeScene2D(function* (view) {
         Run 3: re-run clean input, but force SAE feature 0 to its cached poisoned value (a_poisoned[0]).
         
         Forward pass produces a new metric m.
-        IE for feature 0 = m_new − m_clean.
+        IE for feature 0 = m_new − out_clean.
       `, 'Stanislas');
     }
   }
@@ -852,7 +854,7 @@ export default makeScene2D(function* (view) {
   // ---- Pass 2: forward on CLEAN ----
   passCounter().text('ATP: 2 passes');
   yield* forward(CLEAN, colors.active, 'boys');
-  yield* setMetric(M_CLEAN, 0.3);
+  yield* setMetric(out_clean, 0.3);
 
   const cleanRows: Txt[] = [];
   for (let i = 0; i < FEATURES; i++) {
@@ -977,6 +979,8 @@ export default makeScene2D(function* (view) {
     Combine. For each feature: multiply gradient × (a_poisoned − a_clean).
     
     All 12 IE estimates pop out in parallel, no extra forward passes.
+
+    Notice how the same SAE nodes are highlighted, but the magnitudes are underestimated, due to the straight tangents.
   `, 'Stanislas');
 
   // ---- ATP cost tally (right of naive tally, same row) ----
@@ -1007,7 +1011,7 @@ export default makeScene2D(function* (view) {
   yield* slide('atp:summary', `
     ATP: 2 forward + 1 backward. Constant cost, regardless of node count.
     
-    Tradeoff: ATP is a first-order approximation. Underestimates when m is nonlinear in a (paper's Fig. 25).
+    Tradeoff: ATP is a first-order approximation. Underestimates when m is nonlinear in a.
     Paper's fix: integrated gradients — average gradient along clean→patch path. More accurate, still cheap.
   `, 'Stanislas');
 
