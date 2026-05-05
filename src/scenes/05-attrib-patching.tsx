@@ -870,13 +870,10 @@ export default makeScene2D(function* (view) {
     metricVal().opacity(1, 0.3),
     notesBg().opacity(0.6, 0.3),
     sectionTitle().opacity(1, 0.3),
-    baselineHdr().opacity(1, 0.3),
-    baselineVal().opacity(1, 0.3),
     algCostHdr().opacity(1, 0.3),
     algCostSub().opacity(1, 0.3),
     fwdC.handle.ref().opacity(1, 0.3),
     bwdC.handle.ref().opacity(1, 0.3),
-    formula().opacity(1, 0.3),
   );
   notesRows.length = 0;
   // reset counters and update sub-caption for ATP phase
@@ -939,6 +936,11 @@ export default makeScene2D(function* (view) {
     cleanRows.push(row);
   }
   yield* sequence(0.04, ...cleanRows.map(r => r.opacity(1, 0.2)));
+
+  yield* all(
+    baselineHdr().opacity(1, 0.3),
+    baselineVal().opacity(1, 0.3),
+  );
 
   yield* slide('atp:atp-pass2', `
     Again, we store the clean activations. Nothing different here.
@@ -1040,6 +1042,7 @@ export default makeScene2D(function* (view) {
   }
   // all 12 in parallel — that's the whole point
   yield* all(...ieRows.map(r => r.opacity(1, 0.4)));
+  yield* formula().opacity(1, 0.3);
 
   yield* slide('atp:combine', `
     Combine. For each feature: multiply gradient × (a_poisoned − a_clean).
