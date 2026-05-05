@@ -31,7 +31,8 @@ The choice is stored in browser `localStorage` and persists across reloads. Each
 ## Presenting
 
 - Click **PRESENT** button → enters Presentation Mode.
-- `Space` / `→` → next slide
+- `Space` → next slide
+- `→` skip to next slide (no animation)
 - `←` → previous slide
 - `F` (in editor) → fullscreen
 - `Esc` → exit fullscreen / presenter
