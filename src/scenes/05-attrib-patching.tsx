@@ -1,4 +1,4 @@
-import { Circle, Line, makeScene2D, Rect, Txt } from '@motion-canvas/2d';
+import { Circle, Layout, Line, makeScene2D, Rect, Txt } from '@motion-canvas/2d';
 import { all, chain, createRef, sequence, waitFor } from '@motion-canvas/core';
 import { addBackground } from '../lib/bg';
 import { makeCounter } from '../lib/counter';
@@ -90,21 +90,27 @@ export default makeScene2D(function* (view) {
   const layout = setupSlide(view, { title: 'Counterfactual: naive' });
 
   // ---------- prompts (shown only on title slide, centered) ----------
-  const promptClean = createRef<Txt>();
+  const promptClean = createRef<Layout>();
   const promptPatch = createRef<Txt>();
   view.add(
     <>
-      <Txt
+      <Layout
         ref={promptClean}
-        x={0} y={-40}
-        fontSize={36} fontFamily={fonts.mono} fill={colors.active} opacity={0}
-        text={'clean:  "the boys near the teacher ___"   → are'}
-      />
+        layout direction={'row'} gap={0}
+        x={0} y={-40} opacity={0}
+      >
+        <Txt fontSize={36} fontFamily={fonts.mono} fill={colors.active}
+          text={'clean:  "the boy'} />
+        <Txt fontSize={36} fontFamily={fonts.mono} fill={MAGENTA} fontWeight={700}
+          text={'s'} />
+        <Txt fontSize={36} fontFamily={fonts.mono} fill={colors.active}
+          text={' near the teacher ___"   → are'} />
+      </Layout>
       <Txt
         ref={promptPatch}
         x={0} y={+40}
         fontSize={36} fontFamily={fonts.mono} fill={colors.bad} opacity={0}
-        text={'poisoned:  "the boy near the teacher __"    → is'}
+        text={'patch:  "the boy near the teacher __"    → is'}
       />
     </>,
   );
@@ -318,7 +324,7 @@ export default makeScene2D(function* (view) {
       <Txt ref={iPatchLbl}
         x={iax(I_A_PATCH) - 14} y={iay(I_M_PATCH) + 30} offsetX={1}
         fontSize={18} fontFamily={fonts.mono} fill={colors.bad}
-        text={'(a_patch, m_patch)'} opacity={0}
+        text={'(a_patch, out_patch)'} opacity={0}
       />
     </>,
   );
@@ -421,7 +427,7 @@ export default makeScene2D(function* (view) {
       <Txt ref={formula}
         x={PANEL_CX} y={FORMULA_Y}
         fontSize={18} fontFamily={fonts.mono} fill={colors.sae}
-        opacity={0} text={'IE_atp[i] = ∇ₐm[i] · (a_poisoned[i] − a_clean[i])'}
+        opacity={0} text={'IE_atp[i] = ∇ₐm[i] · (a_patch[i] − a_clean[i])'}
       />
       <Txt ref={baselineHdr}
         x={PANEL_CX} y={BASELINE_HDR_Y}
@@ -471,7 +477,7 @@ export default makeScene2D(function* (view) {
   );
   yield* slide('atp:title', `
     We want a more systematic/mathematical way to identify SAE nodes used for specific tasks.
-    We use counterfactuals: give a clean and a poisoned prompt as input.
+    We use counterfactuals: give a clean and a patch prompt as input.
 
     In this example, we search the SAE nodes that track subject number across distractors (subj: boy, distractor: near the teacher).
   `, 'Stanislas');
@@ -505,9 +511,9 @@ export default makeScene2D(function* (view) {
     We introduce a few notations here:
     - out is the model's output value, negative for "is" & positive for "are"
     - out_clean is the model's output when given the clean input. Called the baseline.
-    - a_poisoned is the SAE node activation when the input is poisoned
+    - a_patch is the SAE node activation when the input is patch
     - a_clean is the SAE node activation when the input is clean
-    - IE is the Indirect Effect, i.e. how much one node causes metric m to change between clean baseline and poisoned.
+    - IE is the Indirect Effect, i.e. how much one node causes metric m to change between clean baseline and patch.
     
     First we look at the naive, slow and costly approach.
   `, 'Stanislas');
@@ -585,7 +591,7 @@ export default makeScene2D(function* (view) {
   }
 
   // Notes column headers for naive phase
-  const naiveHdrPatch = addNoteRow('a_poisoned', colors.bad, 0, 0);
+  const naiveHdrPatch = addNoteRow('a_patch', colors.bad, 0, 0);
   const naiveHdrClean = addNoteRow('a_clean', colors.active, 0, 1);
   const naiveHdrIE = addNoteRow('IE', colors.accent, 0, 2);
   yield* all(
@@ -594,12 +600,12 @@ export default makeScene2D(function* (view) {
     naiveHdrIE.opacity(1, 0.25),
   );
 
-  // Run 1: forward on PATCH input — record a_poisoned for every feature
+  // Run 1: forward on PATCH input — record a_patch for every feature
   yield* forward(PATCH, colors.bad, 'boy');
   yield* setMetric(-0.42, 0.3);
   yield* fwdC.handle.countTo(1, 0.2);
 
-  // slide a_poisoned values into col 0
+  // slide a_patch values into col 0
   const patchRowsNaive: Txt[] = [];
   for (let i = 0; i < FEATURES; i++) {
     const row = addNoteRow(
@@ -611,7 +617,7 @@ export default makeScene2D(function* (view) {
   yield* sequence(0.03, ...patchRowsNaive.map(r => r.opacity(1, 0.2)));
 
   yield* slide('atp:naive-recordpatch', `
-    First: run the model on the poisoned input ("boy"), and store all the SAE activations (a_poisoned) for each node.
+    First: run the model on the patch input ("boy"), and store all the SAE activations (a_patch) for each node.
   `, 'Stanislas');
 
   // Run 2: forward on CLEAN — establish baseline metric, cache a_clean values
@@ -723,7 +729,7 @@ export default makeScene2D(function* (view) {
     yield* intervene(i, i + 1, true);
     if (i === 0) {
       yield* slide('atp:naive-first', `
-        Run 3: re-run clean input, but force SAE feature 0 to its cached poisoned value (a_poisoned[0]).
+        Run 3: re-run clean input, but force SAE feature 0 to its cached patch value (a_patch[0]).
         
         Forward pass produces a new metric m.
         IE for feature 0 = m_new − out_clean.
@@ -888,7 +894,7 @@ export default makeScene2D(function* (view) {
   // Section header in notes
   const headPatch = addNoteRow('patch cache', colors.bad, 0, 0);
   const headClean = addNoteRow('clean cache', colors.active, 0, 1);
-  const headGrad = addNoteRow('∇ₐ m cache', colors.accent, 0, 2);
+  const headGrad = addNoteRow('∇ₐ m cache', MAGENTA, 0, 2);
   const headIE = addNoteRow('IE ≈ ∇·Δa', colors.sae, 0, 3);
   yield* all(
     headPatch.opacity(1, 0.3),
@@ -902,7 +908,7 @@ export default makeScene2D(function* (view) {
 
     Idea: instead of re-running, use a Taylor approximation.
 
-    IE ≈ ∇ₐm · (a_poisoned − a_clean). All 12 nodes computed in parallel from cached values.
+    IE ≈ ∇ₐm · (a_patch − a_clean). All 12 nodes computed in parallel from cached values.
   `, 'Stanislas');
 
   // ---- Pass 1: forward on PATCH ----
@@ -921,7 +927,7 @@ export default makeScene2D(function* (view) {
   yield* sequence(0.04, ...patchRows.map(r => r.opacity(1, 0.2)));
 
   yield* slide('atp:atp-pass1', `
-    Again, we store the poisoned activations. Nothing different here.
+    Again, we store the patch activations. Nothing different here.
   `, 'Stanislas');
 
   // ---- Pass 2: forward on CLEAN ----
@@ -1019,7 +1025,7 @@ export default makeScene2D(function* (view) {
   const gradRows: Txt[] = [];
   for (let i = 0; i < FEATURES; i++) {
     const row = addNoteRow(`g[${i.toString().padStart(2, '0')}]   = ${fmt(GRAD[i])}`,
-      colors.accent, i + 1, 2);
+      MAGENTA, i + 1, 2);
     gradRows.push(row);
   }
   yield* sequence(0.04, ...gradRows.map(r => r.opacity(1, 0.2)));
@@ -1036,7 +1042,7 @@ export default makeScene2D(function* (view) {
   const ieRows: Txt[] = [];
   for (let i = 0; i < FEATURES; i++) {
     const row = addNoteRow(`IE[${i.toString().padStart(2, '0')}] = ${fmt(IE_ATP[i])}`,
-      Math.abs(IE_ATP[i]) > 0.1 ? colors.sae : colors.textMuted,
+      Math.abs(IE_ATP[i]) > 0.1 ? colors.bad : colors.textMuted,
       i + 1, 3);
     ieRows.push(row);
   }
@@ -1045,7 +1051,7 @@ export default makeScene2D(function* (view) {
   yield* formula().opacity(1, 0.3);
 
   yield* slide('atp:combine', `
-    Combine. For each feature: multiply gradient × (a_poisoned − a_clean).
+    Combine. For each feature: multiply gradient × (a_patch − a_clean).
     
     All 12 IE estimates pop out in parallel, no extra forward passes.
 

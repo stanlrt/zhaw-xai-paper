@@ -74,7 +74,7 @@ export default makeScene2D(function* (view) {
       <Txt ref={yLbl}
         x={AXIS_X0 - 10} y={AXIS_Y0 - 30} offsetX={1}
         fontSize={20} fontFamily={fonts.mono} fill={colors.textMuted}
-        text={'m'} opacity={0}
+        text={'out'} opacity={0}
       />
     </>,
   );
@@ -113,12 +113,12 @@ export default makeScene2D(function* (view) {
       <Txt ref={cleanLbl}
         x={ax(A_CLEAN) + 14} y={ay(M_CLEAN) - 22} offsetX={-1}
         fontSize={18} fontFamily={fonts.mono} fill={colors.active}
-        text={'(a_clean, m_clean) = (0.00, +0.40)'} opacity={0}
+        text={'(a_clean, out_clean) = (0.00, +0.40)'} opacity={0}
       />
       <Txt ref={patchLbl}
         x={ax(A_PATCH) - 14} y={ay(M_PATCH) + 30} offsetX={1}
         fontSize={18} fontFamily={fonts.mono} fill={colors.bad}
-        text={'(a_patch, m_patch) = (1.00, −0.40)'} opacity={0}
+        text={'(a_patch, out_patch) = (1.00, −0.40)'} opacity={0}
       />
     </>,
   );
@@ -175,7 +175,7 @@ export default makeScene2D(function* (view) {
       <Txt ref={atpLbl}
         x={ax(A_PATCH) - 14} y={AXIS_Y0 + 30} offsetX={1}
         fontSize={18} fontFamily={fonts.mono} fill={colors.active}
-        text={`ATP estimate: m ≈ ${fmt(M_CLEAN + ATP_IE)}`} opacity={0}
+        text={`ATP estimate: out ≈ ${fmt(M_CLEAN + ATP_IE)}`} opacity={0}
       />
     </>,
   );
@@ -300,7 +300,7 @@ export default makeScene2D(function* (view) {
       <Txt ref={igLbl}
         x={ax(A_PATCH) - 14} y={AXIS_Y0 + 60} offsetX={1}
         fontSize={18} fontFamily={fonts.mono} fill={MAGENTA}
-        text={`IG estimate: m ≈ ${fmt(M_CLEAN + IG_IE)}`} opacity={0}
+        text={`IG estimate: out ≈ ${fmt(M_CLEAN + IG_IE)}`} opacity={0}
       />
     </>,
   );

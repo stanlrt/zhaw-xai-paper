@@ -42,7 +42,9 @@ const FEATURES: FeatureGroup[] = [
 const TOKEN_W = 130;
 const TOKEN_H = 56;
 const TOKEN_GAP = 14;
-const ROW_H = 80;
+const ROW_H = 120;
+const CELL_H = 60;
+const NAME_W = 360;
 
 export default makeScene2D(function* (view) {
   addBackground(view);
@@ -53,7 +55,7 @@ export default makeScene2D(function* (view) {
   const tokenLblRefs = TOKENS.map(() => createRef<Txt>());
   const ROW_TOTAL_W = TOKENS.length * TOKEN_W + (TOKENS.length - 1) * TOKEN_GAP;
   const ROW_X0 = -ROW_TOTAL_W / 2 + TOKEN_W / 2;
-  const TOKEN_Y = -260;
+  const TOKEN_Y = -120;
 
   for (let i = 0; i < TOKENS.length; i++) {
     const x = ROW_X0 + i * (TOKEN_W + TOKEN_GAP);
@@ -97,12 +99,13 @@ export default makeScene2D(function* (view) {
     view.add(
       <>
         <Txt ref={refs.name}
-          x={NAME_X} y={yMid - 12} offsetX={1}
+          x={NAME_X} y={yMid - 22} offsetX={1}
           fontSize={20} fontFamily={fonts.sans} fill={feat.color}
           text={feat.name} opacity={0}
         />
         <Txt ref={refs.desc}
-          x={NAME_X} y={yMid + 14} offsetX={1}
+          x={NAME_X} y={yMid + 8} offsetX={1} offsetY={0}
+          width={NAME_W} textAlign={'right'} textWrap
           fontSize={14} fontFamily={fonts.sans} fill={colors.textMuted}
           text={feat.desc} opacity={0}
         />
@@ -113,7 +116,7 @@ export default makeScene2D(function* (view) {
       const x = ROW_X0 + i * (TOKEN_W + TOKEN_GAP);
       view.add(
         <Rect ref={refs.cells[i]}
-          x={x} y={yMid} width={TOKEN_W - 16} height={32}
+          x={x} y={yMid} width={TOKEN_W - 16} height={CELL_H}
           fill={feat.fires[i] ? feat.color : '#1f2937'}
           stroke={colors.edge} lineWidth={1} radius={6}
           opacity={0}

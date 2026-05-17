@@ -11,6 +11,7 @@ export const colors = {
   accent: "#e6a700",
   good: "#22c55e",
   bad: "#ef4444",
+  magenta: "#d946ef",
 } as const;
 
 export const fonts = {

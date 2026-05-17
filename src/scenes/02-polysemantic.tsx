@@ -468,11 +468,19 @@ export default makeScene2D(function* (view) {
   `, 'Stanislas');
 
   // ---- Phase B: reveal labels for a few features ----
-  const REVEALS: { idx: number; label: string; topPrompts: number[] }[] = [
-    { idx: 1, label: 'feline-animal token', topPrompts: [0, 3, 5, 13] },
-    { idx: 2, label: 'verb of opening (past tense)', topPrompts: [1, 4, 7] },
-    { idx: 3, label: 'container noun', topPrompts: [2, 6, 12] },
-    { idx: 8, label: 'determiner before noun', topPrompts: [0, 6, 8, 12] },
+  const REVEALS: { idx: number; label: string; topPrompts: { pi: number; w: number }[] }[] = [
+    { idx: 1, label: 'feline-animal token', topPrompts: [
+      { pi: 0, w: 1 }, { pi: 3, w: 1 }, { pi: 5, w: 1 }, { pi: 13, w: 1 },
+    ] },
+    { idx: 2, label: 'verb of opening (past tense)', topPrompts: [
+      { pi: 1, w: 1 }, { pi: 4, w: 1 }, { pi: 7, w: 1 },
+    ] },
+    { idx: 3, label: 'container noun', topPrompts: [
+      { pi: 2, w: 3 }, { pi: 6, w: 2 }, { pi: 12, w: 2 },
+    ] },
+    { idx: 8, label: 'determiner before noun', topPrompts: [
+      { pi: 0, w: 0 }, { pi: 6, w: 1 }, { pi: 8, w: 2 }, { pi: 12, w: 1 },
+    ] },
   ];
 
   // Evidence panel (left of SAE column, where sentence row used to be)
@@ -491,15 +499,24 @@ export default makeScene2D(function* (view) {
     />,
   );
 
+  const revealed = new Set<number>();
   for (const rev of REVEALS) {
-    // Highlight target circle, dim others
+    // Highlight target circle (magenta), revert prior reveals to yellow, dim others
     yield* all(
-      ...sparseCircles.map((c, k) =>
-        k === rev.idx
-          ? all(c().fill(colors.sae, 0.3), c().lineWidth(5, 0.3))
-          : c().opacity(0.25, 0.3),
-      ),
-      ...labelRefs.map((r, k) => k === rev.idx ? r().opacity(1, 0.3) : r().opacity(0.2, 0.3)),
+      ...sparseCircles.map((c, k) => {
+        if (k === rev.idx) {
+          return all(c().fill(colors.magenta, 0.3), c().lineWidth(5, 0.3), c().opacity(1, 0.3));
+        }
+        if (revealed.has(k)) {
+          return all(c().fill(colors.neuronFill, 0.3), c().lineWidth(2, 0.3), c().opacity(1, 0.3));
+        }
+        return all(c().fill(colors.neuronFill, 0.3), c().lineWidth(2, 0.3), c().opacity(0.25, 0.3));
+      }),
+      ...labelRefs.map((r, k) => {
+        if (k === rev.idx) return r().opacity(1, 0.3);
+        if (revealed.has(k)) return all(r().opacity(1, 0.3), r().fill(colors.sae, 0.3));
+        return r().opacity(0.2, 0.3);
+      }),
     );
 
     // Build evidence list: top prompts that activated this feature
@@ -515,19 +532,35 @@ export default makeScene2D(function* (view) {
         opacity={0}
       />,
     );
-    const promptRefs: ReturnType<typeof createRef<Txt>>[] = [];
-    for (const pi of rev.topPrompts) {
-      const r = createRef<Txt>();
+    const promptRefs: ReturnType<typeof createRef<Layout>>[] = [];
+    for (const tp of rev.topPrompts) {
+      const r = createRef<Layout>();
       promptRefs.push(r);
+      const tokens = POOL[tp.pi].sentence;
+      const children: any[] = [];
+      children.push(
+        <Txt text={'"'} fontSize={22} fontFamily={fonts.mono} fill={colors.active} />,
+      );
+      tokens.forEach((tok, ti) => {
+        const isTarget = ti === tp.w;
+        const txt = ti < tokens.length - 1 ? tok + ' ' : tok;
+        children.push(
+          <Txt
+            text={txt}
+            fontSize={22}
+            fontFamily={fonts.mono}
+            fill={isTarget ? colors.magenta : colors.active}
+            fontWeight={isTarget ? 700 : 400}
+          />,
+        );
+      });
+      children.push(
+        <Txt text={'"'} fontSize={22} fontFamily={fonts.mono} fill={colors.active} />,
+      );
       evidenceCol().add(
-        <Txt
-          ref={r}
-          text={`"${POOL[pi].sentence.join(' ')}"`}
-          fontSize={22}
-          fontFamily={fonts.mono}
-          fill={colors.active}
-          opacity={0}
-        />,
+        <Layout ref={r} layout direction={'row'} gap={0} opacity={0}>
+          {children}
+        </Layout>,
       );
     }
     yield* chain(
@@ -539,11 +572,13 @@ export default makeScene2D(function* (view) {
 
     // Morph "???" → real label
     labelRefs[rev.idx]().text(rev.label);
-    yield* labelRefs[rev.idx]().fill(colors.sae, 0.4);
+    yield* labelRefs[rev.idx]().fill(colors.magenta, 0.4);
 
     yield* slide(`sae:reveal-${rev.idx}`, `
       Feature ${rev.idx}: fires on these → label it "${rev.label}".
     `, 'Stanislas');
+
+    revealed.add(rev.idx);
 
     // Clear evidence
     yield* all(
