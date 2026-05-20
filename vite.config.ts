@@ -139,7 +139,7 @@ function suppressMetaReload(): Plugin {
   };
 }
 
-const PRESENT_HINT = `Space play · → skip · ← back · R first · L last · F fullscreen · N open notes`;
+const PRESENT_HINT = `Space play · → skip · ← back · R first · L last · F fullscreen · N notes · P export PDF (⇧P +notes)`;
 
 function presentBuildPlugin(): Plugin {
   // Build: emit a standalone presenter (no editor UI) at index.html plus

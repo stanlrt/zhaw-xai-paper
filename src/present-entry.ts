@@ -1,6 +1,12 @@
 import { Presenter } from "@motion-canvas/core";
 import "./lib/presenter-bridge";
 import project from "./project?project";
+import slideNotes from "virtual:slide-notes";
+
+interface SlideInfo {
+  id: string;
+  scene: unknown;
+}
 
 const presenter = new Presenter(project);
 const canvas = presenter.stage.finalBuffer;
@@ -32,11 +38,11 @@ presenter.present(settings);
 // currentSlideId which is null during an in-flight animation — that's what
 // caused the "jump to scene 0" bug. We track the last known marker the
 // presenter was paused at, then derive the target from that.
-let slides: { id: string }[] = [];
+let slides: SlideInfo[] = [];
 let cursor = 0;
 
 presenter.onSlidesChanged.subscribe((s) => {
-  slides = s as { id: string }[];
+  slides = s as unknown as SlideInfo[];
 });
 presenter.onInfoChanged.subscribe((info) => {
   if (info.isWaiting && info.currentSlideId != null) {
@@ -76,6 +82,108 @@ function goPrevAuto() {
     goPrev();
   });
   goNext();
+}
+
+// --- PDF export ---------------------------------------------------------
+// Exports one page per scene at its FINAL animated state (the scene's last
+// beginSlide marker — everything before it has played). Intermediate
+// markers within a scene (e.g. the pipeline diagram's build-up steps) are
+// skipped, so the pipeline becomes a single page with the full diagram.
+let exporting = false;
+
+type Info = { isWaiting: boolean; currentSlideId: string | null };
+function waitForInfo(pred: (info: Info) => boolean) {
+  const cur = () => presenter.onInfoChanged.current as Info;
+  return new Promise<void>((resolve) => {
+    if (pred(cur())) return resolve();
+    const sub = presenter.onInfoChanged.subscribe((info) => {
+      if (pred(info as Info)) {
+        sub();
+        resolve();
+      }
+    });
+  });
+}
+const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+async function exportPdf(withNotes = false) {
+  if (exporting) return;
+  if (!slides.length) {
+    await waitForInfo(() => slides.length > 0);
+  }
+  exporting = true;
+
+  // Group markers by scene, in presentation order. Image = scene's last
+  // marker (full anim done). Notes = all markers' notes concatenated.
+  const order: unknown[] = [];
+  const markersByScene = new Map<unknown, SlideInfo[]>();
+  for (const s of slides) {
+    if (!markersByScene.has(s.scene)) {
+      order.push(s.scene);
+      markersByScene.set(s.scene, []);
+    }
+    markersByScene.get(s.scene)!.push(s);
+  }
+
+  const { jsPDF } = await import("jspdf");
+  const canvas = presenter.stage.finalBuffer as HTMLCanvasElement;
+  const w = canvas.width;
+  const h = canvas.height;
+  const orientation = w >= h ? "landscape" : "portrait";
+  // Caption band beneath the slide image when exporting notes.
+  const CAP_H = withNotes ? Math.round(h * 0.22) : 0;
+  const pageH = h + CAP_H;
+  let pdf: InstanceType<typeof jsPDF> | null = null;
+
+  for (const scene of order) {
+    const markers = markersByScene.get(scene)!;
+    const last = markers[markers.length - 1];
+
+    presenter.requestSlide(last.id);
+    await waitForInfo(
+      (info) => info.isWaiting && info.currentSlideId === last.id,
+    );
+    // Let the final frame paint before reading pixels.
+    await nextFrame();
+    await nextFrame();
+
+    const img = canvas.toDataURL("image/png");
+    if (!pdf) {
+      pdf = new jsPDF({ orientation, unit: "px", format: [w, pageH] });
+    } else {
+      pdf.addPage([w, pageH], orientation);
+    }
+    pdf.addImage(img, "PNG", 0, 0, w, h);
+
+    if (withNotes) {
+      const text = markers
+        .map((m) => slideNotes[m.id]?.notes)
+        .filter(Boolean)
+        .join("\n\n");
+      const pad = Math.round(w * 0.03);
+      const maxW = w - pad * 2;
+      const maxH = CAP_H - pad * 2;
+      const lhf = 1.3;
+      pdf.setFillColor(245, 244, 242);
+      pdf.rect(0, h, w, CAP_H, "F");
+      pdf.setTextColor(31, 20, 22);
+      pdf.setLineHeightFactor(lhf);
+
+      // Shrink font until wrapped text fits the caption band.
+      let fs = Math.round(h * 0.026);
+      let lines = [text || "—"];
+      for (; fs >= 9; fs--) {
+        pdf.setFontSize(fs);
+        lines = pdf.splitTextToSize(text || "—", maxW);
+        if (lines.length * fs * lhf <= maxH) break;
+      }
+      pdf.setFontSize(fs);
+      pdf.text(lines, pad, h + pad + fs);
+    }
+  }
+
+  pdf?.save(`${project.name || "slides"}${withNotes ? "-notes" : ""}.pdf`);
+  exporting = false;
 }
 
 window.addEventListener("keydown", (e) => {
@@ -119,6 +227,12 @@ window.addEventListener("keydown", (e) => {
     case "n":
     case "N":
       window.open("./notes.html", "mc-notes", "noopener");
+      break;
+    case "p":
+    case "P":
+      // Shift+P includes presenter notes as a caption beneath each slide.
+      exportPdf(e.shiftKey);
+      e.preventDefault();
       break;
   }
 });

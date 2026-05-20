@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@motion-canvas/2d": "^3.17.2",
-    "@motion-canvas/core": "^3.17.2"
+    "@motion-canvas/core": "^3.17.2",
+    "jspdf": "^4.2.1"
   },
   "devDependencies": {
     "@motion-canvas/ui": "^3.17.2",
