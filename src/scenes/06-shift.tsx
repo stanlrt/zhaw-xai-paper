@@ -54,7 +54,7 @@ const fmt = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2);
 
 export default makeScene2D(function* (view) {
   addBackground(view);
-  const layout = setupSlide(view, { title: 'SHIFT: step 0 — the problem' });
+  const layout = setupSlide(view, { title: 'SHIFT — Sparse Human-Interpretable Feature Trimming' });
 
   // =========================================================
   // === Title card: ambiguous training set + the shortcut ===
@@ -93,10 +93,12 @@ export default makeScene2D(function* (view) {
   yield* sequence(0.18, ...dataLines.map(t => t().opacity(1, 0.3)));
 
   yield* slide('shift:problem', `
-    Bias-in-Bios: classify profession from biography.
-    Worst case: "ambiguous set" = only male professors + female nurses.
-    Gender = profession (100%). Standard debiasing fails — no labels disentangle the two signals.
-    Goal: a profession classifier that ignores gender, using only this biased data.
+    SHIFT stands for Sparse Human-Interpretable Feature Trimming. It is the main practical application introduced in this paper.
+    The Bias-in-Bios dataset: biographies of real people, labeled with their profession.
+    The authors create a worst-case training set — every professor is male, every nurse is female.
+    Gender and profession are perfectly correlated. The classifier can't tell which one it's actually learning.
+    Standard debiasing needs labeled data that separates the two signals. That's impossible here.
+    The goal of the paper is to build a fair profession classifier using only this biased data and no extra labels.
   `, 'Stanislas');
 
   yield* trainingPanel().opacity(0, 0.3);
@@ -245,7 +247,7 @@ export default makeScene2D(function* (view) {
       <Txt ref={metricLbl}
         x={METRIC_X} y={NET_Y - 18}
         fontSize={13} fontFamily={fonts.mono} fill={colors.textMuted}
-        opacity={0} text={'m = −log P(y|x)'}
+        opacity={0} text={'classifier loss'}
       />
       <Txt ref={metricVal}
         x={METRIC_X} y={NET_Y + 12}
@@ -278,7 +280,7 @@ export default makeScene2D(function* (view) {
   yield* all(
     layout.title().opacity(0, 0.3),
   );
-  layout.title().text('SHIFT: setup — classifier built on top of LM');
+  layout.title().text('SHIFT: setup — a window into the classifier');
   yield* all(
     layout.title().opacity(1, 0.3),
     ogLbl().opacity(1, 0.4),
@@ -297,9 +299,10 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('shift:network', `
-    Setup: same architecture as before. Original network (gray frame) = LM body + linear classification head. SAE column (orange frame) gives us interpretable read-out of internal activations.
-    The SAE does NOT replace the network — it sits alongside, reading internal activations and decomposing them into named features.
-    Output: profession (professor / nurse). Metric: classifier loss m = −log P(y|x).
+    Here is the setup. A language model with a linear classification head on top predicts the profession.
+    The SAE — the sparse autoencoder from before — is our window into the model's internals.
+    Think of it as a translator: it converts the model's messy activations into named, human-readable features.
+    The SAE doesn't change what the model does — it just lets us see and reason about what's happening inside.
   `, 'Stanislas');
 
   // =========================================================
@@ -333,16 +336,17 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('shift:baseline', `
-    Forward pass on a female-nurse biography. SAE features fire (see numbers inside circles).
-    Classifier outputs "nurse" — correct on this training example. But IS that because of medical content, or because of the female pronouns? We cannot tell from output alone.
-    Need to look inside.
+    We run a biography like this through the classifier: "She worked night shifts in the OR for 12 years. Her patients describe her as compassionate and dedicated."
+    The classifier predicts "nurse" — correct.
+    But we don't know why. Is it the medical content — "OR", "night shifts", "patients"? Or is it "She" and "Her"?
+    The output looks right, but the reason might be wrong. We need to look inside.
   `, 'Stanislas');
 
   // =========================================================
   // === Step 1: Discover the circuit (zero-ablation ATP) ===
   // =========================================================
   yield* all(layout.title().opacity(0, 0.3));
-  layout.title().text('Step 1: Discover the circuit (zero-ablation ATP)');
+  layout.title().text('Step 1: Find which features the classifier relies on');
   yield* layout.title().opacity(1, 0.3);
 
   // Notes column header: "feature, IE"
@@ -360,14 +364,15 @@ export default makeScene2D(function* (view) {
     return ref();
   }
 
-  const notesIeHdr = addNoteRow('IE (zero-ablation)', colors.accent, 0, 0);
+  const notesIeHdr = addNoteRow('importance when removed', colors.accent, 0, 0);
   yield* notesIeHdr.opacity(1, 0.3);
 
   yield* slide('shift:atp-intro', `
-    Reuse ATP from before — but with the zero-ablation variant.
-    Previously: clean vs patch pair. Now: ONE input, set each feature to 0 in turn, see how the metric m moves.
-    IE_zero(feature i) = m(x | a_i = 0) − m(x).
-    For visualization: walk through it feature by feature.
+    The same attribution patching from before is applied here, but to each SAE feature one at a time.
+    The box on the right shows the classifier's loss — higher means the classifier is less confident in the correct answer.
+    Each feature gets zeroed out and the change in loss is measured.
+    If the loss changes a lot, the classifier was heavily relying on that feature — it shows up red in the panel.
+    If the loss barely moves, the feature is negligible — shown in grey. Let's walk through it.
   `, 'Stanislas');
 
   const M_BASE = 0.18;
@@ -406,9 +411,11 @@ export default makeScene2D(function* (view) {
     if (detailed) yield* waitFor(0.15);
 
     // (d) Write IE row to notes
+    const importance = Math.abs(IE[i]);
+    const verdict = importance > 0.3 ? 'critical' : importance > 0.15 ? 'significant' : 'negligible';
     const row = addNoteRow(
-      `f${i.toString().padStart(2, '0')}: IE = ${fmt(IE[i])}`,
-      Math.abs(IE[i]) > 0.15 ? colors.bad : colors.textMuted,
+      `feature ${(i + 1).toString().padStart(2, ' ')}  →  ${verdict}`,
+      importance > 0.15 ? colors.bad : colors.textMuted,
       i + 1, 0,
     );
     ieRows.push(row);
@@ -427,14 +434,16 @@ export default makeScene2D(function* (view) {
   // Detailed runs for first 2 features
   yield* zeroAblate(0, true);
   yield* slide('shift:atp-feat0', `
-    Feature 0: force activation to 0, run forward, see the metric.
-    IE_0 = ${fmt(IE[0])}. Tiny effect — classifier barely uses this feature.
-    Same procedure for every feature. (In practice we use the gradient trick to do all 12 in two passes — but the conceptual operation is what we just did.)
+    Feature 0 — "profession-title vocabulary" — barely affects the prediction when we turn it off.
+    The classifier isn't really using this feature. The panel on the right shows "negligible".
+    The same test is run for every feature.
   `, 'Stanislas');
 
   yield* zeroAblate(1, true);
   yield* slide('shift:atp-feat1', `
-    Feature 1: same procedure. IE_1 = ${fmt(IE[1])} — large. Classifier relies heavily on this one. (Spoiler from step 2: this is the "she/her pronoun" feature.)
+    Feature 1 is very different. Turn it off, and the prediction changes dramatically — marked "critical".
+    The classifier relies heavily on this feature.
+    Spoiler from step 2: it turns out to be the "she/her pronouns" feature. The classifier is using gender.
   `, 'Stanislas');
 
   // Time-lapse the rest
@@ -443,9 +452,9 @@ export default makeScene2D(function* (view) {
   }
 
   yield* slide('shift:atp-result', `
-    Done: every SAE feature has its IE. Bigger |IE| = classifier relies on it more.
-    BUT: this only says which features matter — not whether they're profession-relevant or gender-relevant.
-    Step 2 fixes that by labeling each feature.
+    Every feature is now rated: negligible, significant, or critical.
+    But that rating alone doesn't tell us whether the feature is about profession or about gender.
+    A feature could be critical AND encode the wrong thing. Step 2 answers that.
   `, 'Stanislas');
 
   // =========================================================
@@ -453,10 +462,13 @@ export default makeScene2D(function* (view) {
   // =========================================================
   yield* all(layout.title().opacity(0, 0.3));
   layout.title().text('Step 2: Human inspects each feature');
-  yield* layout.title().opacity(1, 0.3);
+  yield* all(
+    layout.title().opacity(1, 0.3),
+    notesIeHdr.opacity(0, 0.3),
+  );
 
   // Add labels column (col 1)
-  const lblHdr = addNoteRow('label   →   verdict', colors.text, 0, 1);
+  const lblHdr = addNoteRow('feature   →   relevant?', colors.text, 0, 1);
   yield* lblHdr.opacity(1, 0.3);
 
   const labelRows: Txt[] = [];
@@ -496,27 +508,33 @@ export default makeScene2D(function* (view) {
     );
     if (i === 1) {
       yield* slide('shift:inspect-1', `
-        Human pulls up max-activating examples on Neuronpedia for each feature.
-        Feature 1 fires hardest on "she", "her", "hers", "herself" — pure gender pronouns. Task-irrelevant for profession classification → flag.
+        Step 2: a human annotator looks at what each feature actually represents.
+        The authors use Neuronpedia — a public tool that shows short text passages from a large corpus, with the specific token that activated each feature highlighted.
+        The annotator reads those passages and asks: what do all the highlighted tokens have in common? That pattern becomes the label.
+        For feature 1, every highlighted token is "she", "her", "hers", or "herself" — female pronouns, nothing about profession.
+        Flag it as task-irrelevant.
       `, 'Stanislas');
     } else if (i === 5) {
       yield* slide('shift:inspect-5', `
-        Feature 5 fires on medical terminology: "patient", "OR", "shift", "ward". This IS task-relevant — nurses do work with these terms. → keep.
+        Feature 5 is different. It fires on "patient", "OR", "shift", "ward" — medical terminology.
+        This IS relevant to profession classification: nurses work with these terms. Keep it.
+        This is the key step: human judgement on interpretable features. No extra labels needed.
       `, 'Stanislas');
     }
   }
 
   yield* slide('shift:inspect-done', `
-    Out of 12 features: 5 flagged as task-irrelevant (gender-related), 7 kept (profession content).
-    Paper's real numbers: 55 of 67 Pythia features flagged, 43 of 46 Gemma features flagged. Most features encoded the shortcut.
-    No labels needed. Just human judgement on interpretable units.
+    In this demo: 5 features flagged as gender-related, 7 kept as profession content.
+    Real numbers from the paper: 55 out of 67 features in the Pythia circuit were flagged.
+    The classifier had mostly learned gender — not profession. That's the shortcut.
+    And we identified it with no extra labels, just by reading what the features represent.
   `, 'Stanislas');
 
   // =========================================================
   // === Step 3: Ablate ===
   // =========================================================
   yield* all(layout.title().opacity(0, 0.3));
-  layout.title().text('Step 3: Ablate the flagged features');
+  layout.title().text('Step 3: Remove the biased features');
   yield* layout.title().opacity(1, 0.3);
 
   // Crossed-out visual: stroke red, slash inside, fade text
@@ -567,18 +585,17 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('shift:ablate', `
-    Ablation: clamp flagged features to 0 in the residual stream. Visually: those SAE circles dead, edges dashed.
-
-    Notice: the LOSS WENT UP. The classifier was using these gender features to decide. Without them, predictions degrade. Profession accuracy: 75.5%, gender accuracy: 73% (paper's "SHIFT no-retrain" row). Better than original on profession, but not great.
-
-    The classifier's head is wired to use those features. We need to rewire it. → step 4.
+    Step 3: we permanently zero out the gender features. The crossed-out circles no longer contribute.
+    Notice the loss went up. The classifier was relying on gender features to make decisions — and now they're gone.
+    Profession accuracy without retraining: 75.5%. Better than before, but not great.
+    The last layer is still wired to expect those features. We need to rewire it. That's step 4.
   `, 'Stanislas');
 
   // =========================================================
   // === Step 4: Retrain head ===
   // =========================================================
   yield* all(layout.title().opacity(0, 0.3));
-  layout.title().text('Step 4: Retrain the linear head (head only — rest frozen)');
+  layout.title().text('Step 4: Retrain only the final layer');
   yield* layout.title().opacity(1, 0.3);
 
   // Padlock indicators on frozen parts
@@ -611,10 +628,10 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('shift:retrain-setup', `
-    Step 4: only the linear classification head gets retrained. That's the SAE-features → output edges. Just one matrix.
-    Everything else is FROZEN: input embeddings, LM body (hidden), SAE basis, feature labels — none of it changes.
-    Why retrain at all? The head was using feature-1 ("she/her") to route to "nurse". Now feature-1 is permanently 0. Head must learn a new path: use feature-5 (medical terms) and feature-10 (profession nouns) for the "nurse" decision instead.
-    Crucially: the dead features stay dead, so the head can't relearn the bias.
+    Step 4: only the final classification layer gets retrained. Everything else stays frozen — the language model, the SAE, all of that.
+    The final layer was wired to use the "she/her" feature to predict "nurse". That feature is now permanently zero.
+    So the layer has to find a new path: use medical terminology and profession vocabulary instead.
+    Because the gender features stay zeroed out, the layer cannot relearn the shortcut — even training on the same biased data.
   `, 'Stanislas');
 
   // Highlight the SAE→output edges as "the head"
@@ -654,8 +671,10 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('shift:retrain-after', `
-    Head re-fitted. Same input ("She worked night shifts in OR") still classified as "nurse" — but now via medical-terminology features, not gender features.
-    Critical test: a male nurse bio. Original classifier would mis-classify (gender said "professor"). New classifier? Correct, because content drives it.
+    The same biography — "She worked night shifts in OR" — is still classified as nurse.
+    But now it's because of the medical content, not because of "she".
+    Critical test: a male nurse biography. The original classifier would say "professor" because of gender.
+    The new classifier says "nurse" — correctly — because it learned to use profession content.
   `, 'Stanislas');
 
   // =========================================================
@@ -685,7 +704,7 @@ export default makeScene2D(function* (view) {
     notesIeHdr.opacity(0, 0.2),
     lblHdr.opacity(0, 0.2),
   );
-  layout.title().text('SHIFT result: matches the oracle, no balanced data');
+  layout.title().text('SHIFT result: fair classification without extra labeled data');
   yield* layout.title().opacity(1, 0.3);
 
   // Three counters: profession, gender, worst-group (each: original → SHIFT)
@@ -746,8 +765,9 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('shift:result-before', `
-    Original Pythia classifier on balanced test data:
-    profession 61.9% (close to majority class), gender 87.4% (heavy bias), worst-group 24.4% (the minority group is ~lost).
+    The original classifier, tested on balanced data it has never seen:
+    Profession accuracy is 62% — barely above chance. Gender accuracy is 87% — it is essentially a gender classifier.
+    "Worst-group" refers to the demographic group with the lowest accuracy — here, male nurses and female professors, who are the minority in the biased training data. Only 24% of them are classified correctly.
   `, 'Stanislas');
 
   yield* all(
@@ -757,20 +777,19 @@ export default makeScene2D(function* (view) {
   );
 
   yield* slide('shift:result-after', `
-    After SHIFT + retrain:
-    profession 93.0% (matches the oracle that had access to balanced labeled data!).
-    gender 49.4% — back to chance level. Classifier truly cannot tell gender anymore.
-    worst-group 91.9% — minority groups now classified correctly.
-    All from the biased ambiguous set. No labels disentangling the two signals. Just SAE features + human inspection + ATP.
+    After SHIFT: profession accuracy jumps to 93% — matching the oracle trained on perfectly balanced, labeled data.
+    Gender accuracy drops to 49%: the classifier can no longer predict gender. It's at chance level.
+    Worst-group accuracy: 92%. Male nurses and female professors are now classified correctly.
+    All of this from the same biased training data, with no extra labels, just SAE features and human inspection.
   `, 'Stanislas');
 
   yield* slide('shift:closing', `
-    Recap of the recipe:
-    1. ATP → which features does the classifier use?
-    2. Human → which of those are task-irrelevant?
-    3. Ablate → kill the bad ones at the residual-stream level.
-    4. Retrain head → recover accuracy without bringing back the bias.
-    The whole thing only works because SAE features are interpretable enough for step 2. Raw neurons fail.
+    To recap SHIFT, the technique introduced in the paper:
+    Step 1 — find which features the classifier uses most, by testing what breaks when each is removed.
+    Step 2 — a human reads the features and labels them: task-relevant or not.
+    Step 3 — remove the irrelevant ones permanently.
+    Step 4 — retrain only the final layer to recover accuracy on legitimate signals.
+    The authors show this only works because SAE features are human-readable — with raw neurons, step 2 is not possible, since a single neuron rarely has a clear meaning.
   `, 'Stanislas');
 
   yield* waitFor(0.2);
