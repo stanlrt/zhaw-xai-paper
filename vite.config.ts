@@ -139,112 +139,55 @@ function suppressMetaReload(): Plugin {
   };
 }
 
+const PRESENT_HINT = `Space play · → skip · ← back · R first · L last · F fullscreen · N open notes`;
+
 function presentBuildPlugin(): Plugin {
-  // Static build: ship a standalone presenter (no editor UI) at index.html
-  // plus the existing notes.html. The presenter mounts the Stage canvas
-  // fullscreen and binds keyboard nav. presenter-bridge wires the
-  // BroadcastChannel to notes.html.
+  // Build: emit a standalone presenter (no editor UI) at index.html plus
+  // notes.html. Dev: serve the same presenter at /present so behavior
+  // matches prod and the MC editor stays available at /.
   let isBuild = false;
   const presentEntryName = "present-entry";
-  const presentEntryId = "virtual:mc-present-entry";
-  const resolvedPresentEntryId = "\0" + presentEntryId;
-  const projectFile = resolve(__dirname, "src/project.ts");
+  const presentEntryFile = resolve(__dirname, "src/present-entry.ts");
   const notesHtmlPath = resolve(__dirname, "notes.html");
   return {
     name: "mc-present-build",
-    apply: "build",
     configResolved(c) {
       isBuild = c.command === "build";
     },
-    config() {
+    config(_, env) {
+      if (env.command !== "build") return;
       return {
         build: {
           rollupOptions: {
             input: {
-              [presentEntryName]: presentEntryId,
+              [presentEntryName]: presentEntryFile,
               notes: notesHtmlPath,
             },
           },
         },
       };
     },
-    resolveId(id) {
-      if (id === presentEntryId) return resolvedPresentEntryId;
-    },
-    load(id) {
-      if (id !== resolvedPresentEntryId) return;
-      const projectImport = projectFile.replace(/\\/g, "/") + "?project";
-      const bridgeImport = resolve(
-        __dirname,
-        "src/lib/presenter-bridge.ts",
-      ).replace(/\\/g, "/");
-      return `\
-import {Presenter} from '@motion-canvas/core';
-import ${JSON.stringify(bridgeImport)};
-import project from ${JSON.stringify(projectImport)};
-
-const presenter = new Presenter(project);
-const canvas = presenter.stage.finalBuffer;
-
-document.documentElement.style.height = '100%';
-document.body.style.margin = '0';
-document.body.style.height = '100vh';
-document.body.style.background = '#000';
-document.body.style.overflow = 'hidden';
-document.body.style.display = 'flex';
-document.body.style.alignItems = 'center';
-document.body.style.justifyContent = 'center';
-canvas.style.maxWidth = '100vw';
-canvas.style.maxHeight = '100vh';
-canvas.style.width = 'auto';
-canvas.style.height = 'auto';
-canvas.style.display = 'block';
-document.body.appendChild(canvas);
-
-const settings = {
-  ...project.meta.getFullRenderingSettings(),
-  name: project.name,
-  slide: null,
-};
-presenter.present(settings);
-
-window.addEventListener('keydown', (e) => {
-  const tag = (e.target && e.target.tagName) || '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  switch (e.key) {
-    case ' ':
-      // resume() plays animation forward through current slide marker
-      presenter.resume();
-      e.preventDefault();
-      break;
-    case 'ArrowRight':
-    case 'PageDown':
-      presenter.requestNextSlide();
-      e.preventDefault();
-      break;
-    case 'ArrowLeft':
-    case 'PageUp':
-      presenter.requestPreviousSlide();
-      e.preventDefault();
-      break;
-    case 'Home':
-      presenter.requestFirstSlide();
-      break;
-    case 'End':
-      presenter.requestLastSlide();
-      break;
-    case 'f':
-    case 'F':
-      if (document.fullscreenElement) document.exitFullscreen();
-      else document.documentElement.requestFullscreen();
-      break;
-    case 'n':
-    case 'N':
-      window.open('./notes.html', 'mc-notes', 'noopener');
-      break;
-  }
-});
-`;
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url) return next();
+        const path = req.url.split("?")[0];
+        if (path !== "/present" && path !== "/present/") return next();
+        const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Presentation (dev)</title>
+    <style>html,body{margin:0;height:100%;background:#000;color:#eee;font-family:system-ui,sans-serif}#hint{position:fixed;left:12px;bottom:8px;font-size:12px;opacity:.5;pointer-events:none}:fullscreen #hint,:-webkit-full-screen #hint{display:none}</style>
+  </head>
+  <body>
+    <div id="hint">${PRESENT_HINT} · <em>dev</em></div>
+    <script type="module" src="/src/present-entry.ts"></script>
+  </body>
+</html>`;
+        res.setHeader("Content-Type", "text/html");
+        res.end(html);
+      });
     },
     generateBundle(_opts, bundle) {
       if (!isBuild) return;
@@ -273,11 +216,11 @@ window.addEventListener('keydown', (e) => {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sparse Feature Circuits — Presentation</title>
+    <title>Presentation</title>
     <style>html,body{margin:0;height:100%;background:#000;color:#eee;font-family:system-ui,sans-serif}#hint{position:fixed;left:12px;bottom:8px;font-size:12px;opacity:.5;pointer-events:none}:fullscreen #hint,:-webkit-full-screen #hint{display:none}</style>
   </head>
   <body>
-    <div id="hint">Space play · → snap next · ← snap prev · F fullscreen · N open notes${notesHtmlFile ? ` (<a style="color:#9cf" href="./${notesHtmlFile}" target="_blank" rel="noopener">notes</a>)` : ""}</div>
+    <div id="hint">${PRESENT_HINT}${notesHtmlFile ? ` (<a style="color:#9cf" href="./${notesHtmlFile}" target="_blank" rel="noopener">notes</a>)` : ""}</div>
     <script type="module" src="./${entryFile}"></script>
   </body>
 </html>
@@ -301,7 +244,7 @@ function openTabsPlugin(): Plugin {
           if (!a || typeof a === "string") return;
           const base = `http://localhost:${a.port}`;
           const { default: open } = await import("open");
-          await open(`${base}?present`);
+          await open(`${base}/present`);
           await open(`${base}/notes.html`);
         } catch (err) {
           console.error("[open-tabs] failed", err);
@@ -312,8 +255,8 @@ function openTabsPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
-  base: "./",
+export default defineConfig(({ command }) => ({
+  base: command === "build" ? "./" : "/",
   server: { open: false },
   plugins: [
     presenterBridgePlugin(),
@@ -323,4 +266,4 @@ export default defineConfig({
     presentBuildPlugin(),
     openTabsPlugin(),
   ],
-});
+}));
