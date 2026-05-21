@@ -272,3 +272,8 @@ window.addEventListener("keydown", (e) => {
       break;
   }
 });
+
+// Click anywhere advances like Space: play through to the next marker.
+window.addEventListener("click", () => {
+  presenter.resume();
+});
