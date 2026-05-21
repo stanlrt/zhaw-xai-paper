@@ -11,6 +11,7 @@ import circuitsFound from "./scenes/05c-circuits-found?scene";
 import shift from "./scenes/06-shift?scene";
 import gemma from "./scenes/07-gemma-result?scene";
 import clustering from "./scenes/08-clustering?scene";
+import qr from "./scenes/09-qr?scene";
 
 export default makeProject({
   scenes: [
@@ -24,5 +25,6 @@ export default makeProject({
     shift,
     gemma,
     clustering,
+    qr,
   ],
 });
