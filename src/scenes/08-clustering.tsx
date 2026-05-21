@@ -59,7 +59,7 @@ export default makeScene2D(function* (view) {
     Doesn't scale. LMs do thousands of things. Most we have no name for.
     Question: can we find behaviors WITHOUT a human curating tasks first?
     Paper §5 answers yes.
-  `, 'Stanislas');
+  `, 'Menan');
 
   // Fade out motivation
   yield* all(
@@ -151,7 +151,7 @@ export default makeScene2D(function* (view) {
     2. For each sample, compute a behavior vector vᵢ. Authors use the per-sample loss gradient — captures HOW the model arrived at this prediction.
     3. Cluster the vᵢ. Samples that use the same internal mechanism get similar vectors → end up in the same cluster.
     4. Each cluster is itself a sub-corpus. Run ATP on it (zero-ablation, like SHIFT) → get one circuit per cluster.
-  `, 'Stanislas');
+  `, 'Menan');
 
   // Fade pipeline out
   yield* all(
@@ -235,7 +235,7 @@ export default makeScene2D(function* (view) {
   yield* all(sampleBox().opacity(1, 0.4), sampleTxt().opacity(1, 0.4));
   yield* slide('cluster:vector-1', `
     Take one sample: context + actual next token. Here: weekday-sequence prediction.
-  `, 'Stanislas');
+  `, 'Menan');
 
   yield* all(
     arrow1().opacity(1, 0.3),
@@ -248,7 +248,7 @@ export default makeScene2D(function* (view) {
     For this sample, compute the gradient of log P(y|x) w.r.t. model parameters (or activations). That gradient = a high-dimensional vector vᵢ.
     Why this works: two samples that use the SAME internal mechanism have SIMILAR gradients (the same parts of the model contributed). Different mechanisms → different gradients.
     Same idea as Michaud et al. 2023's "quanta" of capability.
-  `, 'Stanislas');
+  `, 'Menan');
 
   yield* all(
     sampleBox().opacity(0, 0.3), sampleTxt().opacity(0, 0.3),
@@ -304,7 +304,7 @@ export default makeScene2D(function* (view) {
     Project the vectors to 2D (UMAP). Apply clustering (HDBSCAN). Get many small clusters.
     Each cluster ≈ a coherent behavior. Names come AFTER inspection — humans look at samples in each cluster, recognize the mechanism.
     Authors get THOUSANDS of clusters from a Pile subset.
-  `, 'Stanislas');
+  `, 'Menan');
 
   // Fade scatter, keep two clusters for next slides
   yield* all(
@@ -342,7 +342,7 @@ export default makeScene2D(function* (view) {
   yield* slide('cluster:succession-samples', `
     Inside the "succession" cluster, samples look like this. All predict the next item in some ordered sequence.
     Different surface forms (numbers, weekdays, months, chapters), same underlying mechanism.
-  `, 'Stanislas');
+  `, 'Menan');
 
   // ATP arrow + discovered features
   const atpArrow = createRef<Line>();
@@ -413,7 +413,7 @@ export default makeScene2D(function* (view) {
     1. A general "successor" feature — fires anywhere it sees an ordered sequence, promotes the next element.
     2. Narrow "induction" features — recognize patterns like "X₃ … X₄".
     The induction features = same mechanism as the famous induction heads from Olsson et al. 2022. Auto-rediscovered, with no human labels and no curated dataset.
-  `, 'Stanislas');
+  `, 'Menan');
 
   // Fade succession example
   yield* all(
@@ -521,7 +521,7 @@ export default makeScene2D(function* (view) {
     A. permission verbs ("requires Y to", "allows Y to") — "to" expected because the verb takes an infinitive object.
     B. intent verbs ("tries to", "attempts to") — "to" expected because the verb takes an infinitive complement.
     Same surface output, different reasons. Circuit-level analysis exposes the split.
-  `, 'Stanislas');
+  `, 'Menan');
 
   // Fade
   yield* all(
@@ -570,7 +570,7 @@ export default makeScene2D(function* (view) {
     The whole interpretability story comes full circle:
     SAE → polysemantic neurons become features. ATP → causal circuit per behavior. Clustering → discover the behaviors themselves at scale.
     The paper's own preview is at feature-circuits.xyz — clusters and their circuits, browsable.
-  `, 'Stanislas');
+  `, 'Menan');
 
   yield* waitFor(0.2);
 });

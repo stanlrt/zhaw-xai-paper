@@ -84,7 +84,7 @@ export default makeScene2D(function* (view) {
   yield* slide('gemma:before', `
     Worst-case bias: 81%. Classifier almost entirely riding the gender shortcut.
     ~10s.
-  `, 'Stanislas');
+  `, 'Elio');
 
   yield* arrow().opacity(1, 0.3);
   yield* after.handle.ref().opacity(1, 0.3);
@@ -93,7 +93,7 @@ export default makeScene2D(function* (view) {
     After ablating gender features: 51%. Bias near gone.
     Bonus: actual task accuracy improved — model relies on robust features.
     ~12s.
-  `, 'Stanislas');
+  `, 'Elio');
 
   yield* waitFor(0.2);
 });
