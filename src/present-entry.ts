@@ -85,10 +85,16 @@ function goPrevAuto() {
 }
 
 // --- PDF export ---------------------------------------------------------
-// Exports one page per scene at its FINAL animated state (the scene's last
-// beginSlide marker — everything before it has played). Intermediate
-// markers within a scene (e.g. the pipeline diagram's build-up steps) are
-// skipped, so the pipeline becomes a single page with the full diagram.
+// Exports one page per GROUP at its FINAL animated state (the group's last
+// beginSlide marker — everything before it has played). A group is normally
+// a whole scene, so intermediate build-up markers (e.g. the pipeline
+// diagram's steps) collapse into one page with the full diagram.
+// Opt-in exception: a marker whose id is in PAGE_BREAK_IDS starts a NEW
+// group mid-scene, so a scene that holds two distinct slides (e.g.
+// 02-polysemantic's MLP block then SAE) exports as separate pages.
+const PAGE_BREAK_IDS = new Set<string>([
+  "sae:pivot", // split MLP block (poly:*) from the SAE half of the scene
+]);
 let exporting = false;
 
 type Info = { isWaiting: boolean; currentSlideId: string | null };
@@ -113,16 +119,17 @@ async function exportPdf(withNotes = false) {
   }
   exporting = true;
 
-  // Group markers by scene, in presentation order. Image = scene's last
-  // marker (full anim done). Notes = all markers' notes concatenated.
-  const order: unknown[] = [];
-  const markersByScene = new Map<unknown, SlideInfo[]>();
+  // Group markers in presentation order. A new group starts on a scene
+  // change or a PAGE_BREAK_IDS marker. Image = group's last marker (full
+  // anim done). Notes = all the group's markers' notes concatenated.
+  const groups: SlideInfo[][] = [];
+  let prevScene: unknown;
   for (const s of slides) {
-    if (!markersByScene.has(s.scene)) {
-      order.push(s.scene);
-      markersByScene.set(s.scene, []);
-    }
-    markersByScene.get(s.scene)!.push(s);
+    const startNew =
+      groups.length === 0 || s.scene !== prevScene || PAGE_BREAK_IDS.has(s.id);
+    if (startNew) groups.push([]);
+    groups[groups.length - 1].push(s);
+    prevScene = s.scene;
   }
 
   const { jsPDF } = await import("jspdf");
@@ -135,8 +142,7 @@ async function exportPdf(withNotes = false) {
   const pageH = h + CAP_H;
   let pdf: InstanceType<typeof jsPDF> | null = null;
 
-  for (const scene of order) {
-    const markers = markersByScene.get(scene)!;
+  for (const markers of groups) {
     const last = markers[markers.length - 1];
 
     presenter.requestSlide(last.id);
