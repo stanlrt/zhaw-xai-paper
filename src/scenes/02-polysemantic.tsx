@@ -179,7 +179,7 @@ export default makeScene2D(function* (view) {
   yield* slide('poly:network', `
     We look at very simple MLP block of an LLM. Predicts 3 possible next tokens based on given prompt.
     [play 3 anims]
-  `, 'Stanislas');
+  `, 'Stanislas', true);
 
   for (let i = 0; i < TRIALS.length; i++) {
     const t = TRIALS[i];
@@ -576,7 +576,7 @@ export default makeScene2D(function* (view) {
 
     yield* slide(`sae:reveal-${rev.idx}`, `
       Feature ${rev.idx}: fires on these → label it "${rev.label}".
-    `, 'Stanislas');
+    `, 'Stanislas', true);
 
     revealed.add(rev.idx);
 

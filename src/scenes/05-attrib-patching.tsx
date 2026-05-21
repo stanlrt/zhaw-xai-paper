@@ -480,7 +480,7 @@ export default makeScene2D(function* (view) {
     We use counterfactuals: give a clean and a patch prompt as input.
 
     In this example, we search the SAE nodes that track subject number across distractors (subj: boy, distractor: near the teacher).
-  `, 'Stanislas');
+  `, 'Stanislas', true);
 
   // fade prompts out, network appears
   yield* all(
@@ -752,7 +752,7 @@ export default makeScene2D(function* (view) {
     Now we have all IEs. We look at the significant ones. THose indicate the SAE nodes we seek.
 
     But: 14 forward passes. SAE in reality has millions of nodes. And one SAE per hidden layer. Unscalable.
-  `, 'Stanislas');
+  `, 'Stanislas', true);
 
   // ============================================================
   // INTUITION: Taylor-tangent visualization
@@ -832,7 +832,7 @@ export default makeScene2D(function* (view) {
     Good news, back propagation gives us the gradient ∇m of ALL NODES at once.
     
     Tradeoff: tangent doesn't bend, but the curve does. Estimate underestimates the true change. Error bracket = curvature we ignored.
-  `, 'Stanislas');
+  `, 'Stanislas', true);
 
   // Hide curve, restore network for ATP demo
   yield* all(

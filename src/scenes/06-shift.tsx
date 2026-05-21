@@ -528,7 +528,7 @@ export default makeScene2D(function* (view) {
     Real numbers from the paper: 55 out of 67 features in the Pythia circuit were flagged.
     The classifier had mostly learned gender — not profession. That's the shortcut.
     And we identified it with no extra labels, just by reading what the features represent.
-  `, 'Elio');
+  `, 'Elio', true);
 
   // =========================================================
   // === Step 3: Ablate ===
@@ -589,7 +589,7 @@ export default makeScene2D(function* (view) {
     Notice the loss went up. The classifier was relying on gender features to make decisions — and now they're gone.
     Profession accuracy without retraining: 75.5%. Better than before, but not great.
     The last layer is still wired to expect those features. We need to rewire it. That's step 4.
-  `, 'Elio');
+  `, 'Elio', true);
 
   // =========================================================
   // === Step 4: Retrain head ===

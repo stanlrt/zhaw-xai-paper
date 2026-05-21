@@ -10,6 +10,7 @@ declare module 'virtual:slide-notes' {
   export interface SlideMeta {
     notes: string;
     owner?: string;
+    page?: boolean;
   }
   const notes: Record<string, SlideMeta>;
   export default notes;

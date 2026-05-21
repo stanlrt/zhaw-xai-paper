@@ -9,8 +9,10 @@ const motionCanvas = require("@motion-canvas/vite-plugin").default;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// id may be single/double-quoted or a template literal (e.g. a loop building
+// `sae:reveal-${i}`); template ids keep their ${...} placeholders in the key.
 const SLIDE_RE =
-  /slide\(\s*['"]([^'"]+)['"]\s*,\s*`([\s\S]*?)`(?:\s*,\s*['"]([^'"]+)['"])?/g;
+  /slide\(\s*[`'"]([^`'"]+)[`'"]\s*,\s*`([\s\S]*?)`(?:\s*,\s*['"]([^'"]+)['"])?(?:\s*,\s*(true|false))?/g;
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -32,6 +34,7 @@ function walk(dir: string): string[] {
 interface SlideMeta {
   notes: string;
   owner?: string;
+  page?: boolean;
 }
 
 function extractNotes(): Record<string, SlideMeta> {
@@ -47,6 +50,7 @@ function extractNotes(): Record<string, SlideMeta> {
       notes[fullId] = {
         notes: m[2].replace(/^[ \t]+/gm, "").trim(),
         owner: m[3] || undefined,
+        page: m[4] === "true" || undefined,
       };
     }
   }

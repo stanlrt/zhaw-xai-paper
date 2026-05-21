@@ -86,30 +86,27 @@ function goPrevAuto() {
 
 // --- PDF export ---------------------------------------------------------
 // A PDF page is emitted at each "anchor" marker: every scene's FINAL marker
-// (so every scene appears) PLUS any marker explicitly listed below. The page
-// renders that anchor's frame; build-up markers between anchors collapse
-// into the next page (their notes are still merged in). This keeps pure
-// build-up steps (e.g. the naive-* lead-up) off their own pages while
-// guaranteeing the distinct slides the deck actually wants.
-const PAGE_ANCHOR_IDS = new Set<string>([
-  "poly:network", // MLP block, before the SAE half of the same scene
-  "atp:title",
-  "atp:naive-done",
-  "atp:intuition-tangent",
-  "atp:summary",
-  "shift:inspect-done",
-  "shift:ablate",
-  "cluster:motivation",
-  "cluster:pipeline",
-  "cluster:vector-2",
-  "cluster:scatter",
-  "cluster:to-circuit",
-]);
-// Prefixes whose every numbered marker is its own page (e.g. sae:reveal-3).
-const PAGE_ANCHOR_PREFIXES = ["sae:reveal-"];
+// (so every scene appears) PLUS any marker passed showInPrint=true at its
+// slide() call site. The page renders that anchor's frame; build-up markers
+// between anchors collapse into the next page (their notes are still merged
+// in). This keeps pure build-up steps off their own pages while letting a
+// scene expose its distinct slides — controlled where the slide is defined.
+//
+// Marker ids built from a template literal (e.g. `sae:reveal-${i}`) are
+// stored with their ${...} placeholders; match those as wildcards so every
+// numbered instance (sae:reveal-0, sae:reveal-1, …) inherits the flag.
+const pagePatterns = Object.keys(slideNotes)
+  .filter((id) => slideNotes[id]?.page === true && id.includes("${"))
+  .map(
+    (id) =>
+      new RegExp(
+        "^" +
+          id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\$\\\{[^}]*\\\}/g, ".+") +
+          "$",
+      ),
+  );
 const isAnchor = (id: string) =>
-  PAGE_ANCHOR_IDS.has(id) ||
-  PAGE_ANCHOR_PREFIXES.some((p) => id.startsWith(p));
+  slideNotes[id]?.page === true || pagePatterns.some((rx) => rx.test(id));
 let exporting = false;
 
 type Info = { isWaiting: boolean; currentSlideId: string | null };

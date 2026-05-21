@@ -59,7 +59,7 @@ export default makeScene2D(function* (view) {
     Doesn't scale. LMs do thousands of things. Most we have no name for.
     Question: can we find behaviors WITHOUT a human curating tasks first?
     Paper §5 answers yes.
-  `, 'Menan');
+  `, 'Menan', true);
 
   // Fade out motivation
   yield* all(
@@ -151,7 +151,7 @@ export default makeScene2D(function* (view) {
     2. For each sample, compute a behavior vector vᵢ. Authors use the per-sample loss gradient — captures HOW the model arrived at this prediction.
     3. Cluster the vᵢ. Samples that use the same internal mechanism get similar vectors → end up in the same cluster.
     4. Each cluster is itself a sub-corpus. Run ATP on it (zero-ablation, like SHIFT) → get one circuit per cluster.
-  `, 'Menan');
+  `, 'Menan', true);
 
   // Fade pipeline out
   yield* all(
@@ -248,7 +248,7 @@ export default makeScene2D(function* (view) {
     For this sample, compute the gradient of log P(y|x) w.r.t. model parameters (or activations). That gradient = a high-dimensional vector vᵢ.
     Why this works: two samples that use the SAME internal mechanism have SIMILAR gradients (the same parts of the model contributed). Different mechanisms → different gradients.
     Same idea as Michaud et al. 2023's "quanta" of capability.
-  `, 'Menan');
+  `, 'Menan', true);
 
   yield* all(
     sampleBox().opacity(0, 0.3), sampleTxt().opacity(0, 0.3),
@@ -304,7 +304,7 @@ export default makeScene2D(function* (view) {
     Project the vectors to 2D (UMAP). Apply clustering (HDBSCAN). Get many small clusters.
     Each cluster ≈ a coherent behavior. Names come AFTER inspection — humans look at samples in each cluster, recognize the mechanism.
     Authors get THOUSANDS of clusters from a Pile subset.
-  `, 'Menan');
+  `, 'Menan', true);
 
   // Fade scatter, keep two clusters for next slides
   yield* all(
@@ -521,7 +521,7 @@ export default makeScene2D(function* (view) {
     A. permission verbs ("requires Y to", "allows Y to") — "to" expected because the verb takes an infinitive object.
     B. intent verbs ("tries to", "attempts to") — "to" expected because the verb takes an infinitive complement.
     Same surface output, different reasons. Circuit-level analysis exposes the split.
-  `, 'Menan');
+  `, 'Menan', true);
 
   // Fade
   yield* all(
