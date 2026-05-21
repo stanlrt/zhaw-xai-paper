@@ -8,7 +8,7 @@ import qrSrc from '../assets/qr.svg';
 export default makeScene2D(function* (view) {
   addBackground(view);
   const layout = setupSlide(view, {
-    title: 'Unified one-stop-shop library for XAI and robustness',
+    title: 'RAITAP — Unified one-stop-shop library for XAI and robustness',
   });
 
   // Center QR in the area below the title (title sits at y=-440).
