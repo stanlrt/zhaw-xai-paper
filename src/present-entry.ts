@@ -85,16 +85,31 @@ function goPrevAuto() {
 }
 
 // --- PDF export ---------------------------------------------------------
-// Exports one page per GROUP at its FINAL animated state (the group's last
-// beginSlide marker — everything before it has played). A group is normally
-// a whole scene, so intermediate build-up markers (e.g. the pipeline
-// diagram's steps) collapse into one page with the full diagram.
-// Opt-in exception: a marker whose id is in PAGE_BREAK_IDS starts a NEW
-// group mid-scene, so a scene that holds two distinct slides (e.g.
-// 02-polysemantic's MLP block then SAE) exports as separate pages.
-const PAGE_BREAK_IDS = new Set<string>([
-  "sae:pivot", // split MLP block (poly:*) from the SAE half of the scene
+// A PDF page is emitted at each "anchor" marker: every scene's FINAL marker
+// (so every scene appears) PLUS any marker explicitly listed below. The page
+// renders that anchor's frame; build-up markers between anchors collapse
+// into the next page (their notes are still merged in). This keeps pure
+// build-up steps (e.g. the naive-* lead-up) off their own pages while
+// guaranteeing the distinct slides the deck actually wants.
+const PAGE_ANCHOR_IDS = new Set<string>([
+  "poly:network", // MLP block, before the SAE half of the same scene
+  "atp:title",
+  "atp:naive-done",
+  "atp:intuition-tangent",
+  "atp:summary",
+  "shift:inspect-done",
+  "shift:ablate",
+  "cluster:motivation",
+  "cluster:pipeline",
+  "cluster:vector-2",
+  "cluster:scatter",
+  "cluster:to-circuit",
 ]);
+// Prefixes whose every numbered marker is its own page (e.g. sae:reveal-3).
+const PAGE_ANCHOR_PREFIXES = ["sae:reveal-"];
+const isAnchor = (id: string) =>
+  PAGE_ANCHOR_IDS.has(id) ||
+  PAGE_ANCHOR_PREFIXES.some((p) => id.startsWith(p));
 let exporting = false;
 
 type Info = { isWaiting: boolean; currentSlideId: string | null };
@@ -119,17 +134,19 @@ async function exportPdf(withNotes = false) {
   }
   exporting = true;
 
-  // Group markers in presentation order. A new group starts on a scene
-  // change or a PAGE_BREAK_IDS marker. Image = group's last marker (full
-  // anim done). Notes = all the group's markers' notes concatenated.
-  const groups: SlideInfo[][] = [];
-  let prevScene: unknown;
-  for (const s of slides) {
-    const startNew =
-      groups.length === 0 || s.scene !== prevScene || PAGE_BREAK_IDS.has(s.id);
-    if (startNew) groups.push([]);
-    groups[groups.length - 1].push(s);
-    prevScene = s.scene;
+  // Walk markers in order, accumulating into the current page. Close a page
+  // when the marker is an anchor or the last marker of its scene. The page's
+  // image is that closing marker; its notes are every accumulated marker.
+  const pages: { anchor: SlideInfo; markers: SlideInfo[] }[] = [];
+  let pending: SlideInfo[] = [];
+  for (let i = 0; i < slides.length; i++) {
+    const s = slides[i];
+    pending.push(s);
+    const sceneFinal = i === slides.length - 1 || slides[i + 1].scene !== s.scene;
+    if (isAnchor(s.id) || sceneFinal) {
+      pages.push({ anchor: s, markers: pending });
+      pending = [];
+    }
   }
 
   const { jsPDF } = await import("jspdf");
@@ -142,12 +159,10 @@ async function exportPdf(withNotes = false) {
   const pageH = h + CAP_H;
   let pdf: InstanceType<typeof jsPDF> | null = null;
 
-  for (const markers of groups) {
-    const last = markers[markers.length - 1];
-
-    presenter.requestSlide(last.id);
+  for (const { anchor, markers } of pages) {
+    presenter.requestSlide(anchor.id);
     await waitForInfo(
-      (info) => info.isWaiting && info.currentSlideId === last.id,
+      (info) => info.isWaiting && info.currentSlideId === anchor.id,
     );
     // Let the final frame paint before reading pixels.
     await nextFrame();
