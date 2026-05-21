@@ -133,7 +133,7 @@ async function exportPdf(withNotes = false) {
     await waitForInfo(() => slides.length > 0);
   }
   exporting = true;
-
+  try {
   // Walk markers in order, accumulating into the current page. Close a page
   // when the marker is an anchor or the last marker of its scene. The page's
   // image is that closing marker; its notes are every accumulated marker.
@@ -151,8 +151,17 @@ async function exportPdf(withNotes = false) {
 
   const { jsPDF } = await import("jspdf");
   const canvas = presenter.stage.finalBuffer as HTMLCanvasElement;
-  const w = canvas.width;
-  const h = canvas.height;
+  // Downscale to a sane width and encode JPEG: full-res PNG frames of the
+  // gradient backgrounds produce a 300 MB+ PDF the browser fails to save.
+  const MAX_W = 1920;
+  const JPEG_Q = 0.85;
+  const scale = Math.min(1, MAX_W / canvas.width);
+  const w = Math.round(canvas.width * scale);
+  const h = Math.round(canvas.height * scale);
+  const frame = document.createElement("canvas");
+  frame.width = w;
+  frame.height = h;
+  const fctx = frame.getContext("2d")!;
   const orientation = w >= h ? "landscape" : "portrait";
   // Caption band beneath the slide image when exporting notes.
   const CAP_H = withNotes ? Math.round(h * 0.22) : 0;
@@ -168,13 +177,14 @@ async function exportPdf(withNotes = false) {
     await nextFrame();
     await nextFrame();
 
-    const img = canvas.toDataURL("image/png");
+    fctx.drawImage(canvas, 0, 0, w, h);
+    const img = frame.toDataURL("image/jpeg", JPEG_Q);
     if (!pdf) {
-      pdf = new jsPDF({ orientation, unit: "px", format: [w, pageH] });
+      pdf = new jsPDF({ orientation, unit: "px", format: [w, pageH], compress: true });
     } else {
       pdf.addPage([w, pageH], orientation);
     }
-    pdf.addImage(img, "PNG", 0, 0, w, h);
+    pdf.addImage(img, "JPEG", 0, 0, w, h);
 
     if (withNotes) {
       const text = markers
@@ -204,7 +214,12 @@ async function exportPdf(withNotes = false) {
   }
 
   pdf?.save(`${project.name || "slides"}${withNotes ? "-notes" : ""}.pdf`);
-  exporting = false;
+  } catch (err) {
+    console.error("PDF export failed", err);
+    alert("PDF export failed — see console.");
+  } finally {
+    exporting = false;
+  }
 }
 
 window.addEventListener("keydown", (e) => {
