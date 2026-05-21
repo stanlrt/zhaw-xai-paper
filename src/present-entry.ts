@@ -93,20 +93,23 @@ function goPrevAuto() {
 // scene expose its distinct slides — controlled where the slide is defined.
 //
 // Marker ids built from a template literal (e.g. `sae:reveal-${i}`) are
-// stored with their ${...} placeholders; match those as wildcards so every
-// numbered instance (sae:reveal-0, sae:reveal-1, …) inherits the flag.
-const pagePatterns = Object.keys(slideNotes)
-  .filter((id) => slideNotes[id]?.page === true && id.includes("${"))
-  .map(
-    (id) =>
-      new RegExp(
-        "^" +
-          id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\$\\\{[^}]*\\\}/g, ".+") +
-          "$",
-      ),
-  );
-const isAnchor = (id: string) =>
-  slideNotes[id]?.page === true || pagePatterns.some((rx) => rx.test(id));
+// stored under a key with their ${...} placeholders intact. Match those as
+// wildcards so every numbered instance (sae:reveal-0, …) resolves to that
+// entry — for both its showInPrint flag and its notes caption.
+type SlideMeta = (typeof slideNotes)[string];
+const templateMetas = Object.keys(slideNotes)
+  .filter((id) => id.includes("${"))
+  .map((id) => ({
+    rx: new RegExp(
+      "^" +
+        id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\$\\\{[^}]*\\\}/g, ".+") +
+        "$",
+    ),
+    meta: slideNotes[id],
+  }));
+const metaFor = (id: string): SlideMeta | undefined =>
+  slideNotes[id] ?? templateMetas.find((t) => t.rx.test(id))?.meta;
+const isAnchor = (id: string) => metaFor(id)?.page === true;
 let exporting = false;
 
 type Info = { isWaiting: boolean; currentSlideId: string | null };
@@ -175,7 +178,7 @@ async function exportPdf(withNotes = false) {
 
     if (withNotes) {
       const text = markers
-        .map((m) => slideNotes[m.id]?.notes)
+        .map((m) => metaFor(m.id)?.notes)
         .filter(Boolean)
         .join("\n\n");
       const pad = Math.round(w * 0.03);

@@ -1,5 +1,22 @@
 import notes from 'virtual:slide-notes';
 
+// Template-literal marker ids (e.g. `sae:reveal-${i}`) are keyed with their
+// ${...} placeholders; match those as wildcards so each numbered instance
+// resolves to that entry's notes/owner.
+type SlideMeta = (typeof notes)[string];
+const templateMetas = Object.keys(notes)
+  .filter(id => id.includes('${'))
+  .map(id => ({
+    rx: new RegExp(
+      '^' +
+        id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\$\\\{[^}]*\\\}/g, '.+') +
+        '$',
+    ),
+    meta: notes[id],
+  }));
+const metaFor = (id: string): SlideMeta | undefined =>
+  notes[id] ?? templateMetas.find(t => t.rx.test(id))?.meta;
+
 const channel = new BroadcastChannel('mc-slides');
 
 const $status = document.getElementById('status')!;
@@ -44,15 +61,15 @@ function render(info: {
 
   const cur = info.currentSlideId;
   const nxt = info.nextSlideId;
-  const curMeta = cur ? notes[cur] : undefined;
-  const nxtMeta = nxt ? notes[nxt] : undefined;
+  const curMeta = cur ? metaFor(cur) : undefined;
+  const nxtMeta = nxt ? metaFor(nxt) : undefined;
 
   $curId.textContent = cur ?? '—';
   let displayMeta: {notes?: string; owner?: string} | undefined = curMeta;
   if (!displayMeta?.notes?.trim() && cur) {
     const idx = slideIds.indexOf(cur);
     for (let i = idx - 1; i >= 0; i--) {
-      const m = notes[slideIds[i]];
+      const m = metaFor(slideIds[i]);
       if (m?.notes?.trim()) {
         displayMeta = m;
         break;

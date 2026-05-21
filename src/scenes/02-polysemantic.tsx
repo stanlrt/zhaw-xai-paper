@@ -575,7 +575,8 @@ export default makeScene2D(function* (view) {
     yield* labelRefs[rev.idx]().fill(colors.magenta, 0.4);
 
     yield* slide(`sae:reveal-${rev.idx}`, `
-      Feature ${rev.idx}: fires on these → label it "${rev.label}".
+      Each feature fires on a specific set of examples → we read those and
+      give it a human-readable label.
     `, 'Stanislas', true);
 
     revealed.add(rev.idx);

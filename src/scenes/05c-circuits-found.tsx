@@ -215,7 +215,7 @@ export default makeScene2D(function* (view) {
       ...refs.cells.map(c => c().opacity(1, 0.3)),
     );
     yield* slide(`circ:feature-${f}`, `
-      ${FEATURES[f].name}: ${FEATURES[f].desc}
+      Walk through each discovered feature in the circuit and its role.
     `, 'Stanislas');
   }
 
